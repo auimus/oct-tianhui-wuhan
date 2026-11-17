@@ -1,0 +1,271 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700;900&display=swap');
+@import "tailwindcss";
+@import "tailwindcss-safe-area";
+
+@theme {
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 14px;
+  --text-sm--line-height: 20px;
+  --text-base: 16px;
+  --text-base--line-height: 24px;
+  --text-lg: 18px;
+  --text-lg--line-height: 28px;
+  --text-xl: 20px;
+  --text-xl--line-height: 28px;
+  --text-2xl: 24px;
+  --text-2xl--line-height: 32px;
+  --text-3xl: 30px;
+  --text-3xl--line-height: 36px;
+  --text-4xl: 36px;
+  --text-4xl--line-height: 40px;
+  --text-5xl: 48px;
+  --text-5xl--line-height: 52px;
+  --font-sans: "Noto Sans SC", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-serif: "Noto Serif SC", "Songti SC", serif;
+}
+
+:root {
+  color-scheme: light dark;
+  --bg: #f7f5f0;
+  --surface: #fffdf8;
+  --surface-alt: #efeae0;
+  --text: #1c2321;
+  --dim: #5c6b68;
+  --border: #ddd6c8;
+  --accent: #0f5e5c;
+  --accent-soft: #e3efec;
+  --amber: #d98e1b;
+  --amber-soft: #faf0dc;
+  --brick: #b84a2b;
+  --brick-soft: #f9e9e3;
+  --radius: 10px;
+  --space-surface: var(--surface);
+  --space-surface-alt: var(--surface-alt);
+  --space-muted: var(--dim);
+  --space-border: var(--border);
+  --space-accent: var(--accent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121614;
+    --surface: #1b201e;
+    --surface-alt: #242a28;
+    --text: #ece9e2;
+    --dim: #9aa8a4;
+    --border: #333b38;
+    --accent: #4fb8b0;
+    --accent-soft: #1d3230;
+    --amber: #e5a83e;
+    --amber-soft: #38300f;
+    --brick: #e07a56;
+    --brick-soft: #3a241c;
+  }
+}
+
+@layer base {
+  button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) {
+    min-height: 2rem;
+  }
+  body {
+    font-family: var(--font-sans);
+  }
+}
+
+.font-display {
+  font-family: var(--font-serif);
+}
+
+/* MapLibre map pins + selected list row.
+   The glyph encodes the place TYPE (set in App.tsx mapIconFor); the
+   ring/background color encodes STATUS: 已运营 green / 在建 amber /
+   规划中 slate. */
+.pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9999px;
+  background: #fff;
+  font-size: 15px;
+  line-height: 1;
+  border: 2.5px solid var(--accent);
+  box-shadow: 0 1px 5px rgb(0 0 0 / 0.35);
+  cursor: pointer;
+  padding: 0;
+}
+.pin--st-open {
+  border-color: #059669;
+  background: #ddf3e9;
+}
+.pin--st-building {
+  border-color: #d97706;
+  background: #fdf0dc;
+}
+.pin--st-planned {
+  border-color: #64748b;
+  background: #e9edf1;
+}
+.pin--on {
+  transform: scale(1.3);
+  border-width: 3px;
+  box-shadow: 0 3px 10px rgb(0 0 0 / 0.45);
+}
+
+/* Matching icon badges in the legend + place list rows (status colors) */
+.map-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  background: var(--surface-alt);
+  font-size: 14px;
+  line-height: 1;
+  border: 2px solid var(--accent);
+  flex-shrink: 0;
+}
+.map-badge--st-open {
+  border-color: #059669;
+  background: #ddf3e9;
+}
+.map-badge--st-building {
+  border-color: #d97706;
+  background: #fdf0dc;
+}
+.map-badge--st-planned {
+  border-color: #64748b;
+  background: #e9edf1;
+}
+@media (prefers-color-scheme: dark) {
+  .pin--st-open, .map-badge--st-open { background: #173f31; }
+  .pin--st-building, .map-badge--st-building { background: #4d3a14; }
+  .pin--st-planned, .map-badge--st-planned { background: #2e3742; }
+}
+.map-selected {
+  background: var(--accent-soft) !important;
+}
+
+/* Status color dots in the legend */
+.status-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  border: 2.5px solid #64748b;
+  background: #e9edf1;
+  flex-shrink: 0;
+}
+.status-dot--open {
+  border-color: #059669;
+  background: #ddf3e9;
+}
+.status-dot--building {
+  border-color: #d97706;
+  background: #fdf0dc;
+}
+.status-dot--planned {
+  border-color: #64748b;
+  background: #e9edf1;
+}
+
+/* MapLibre popup anchored to the clicked pin (follows the pin as the map
+   moves; MapLibre auto-pans so it stays in view). */
+.th-map-popup .maplibregl-popup-content {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px 12px;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 0.28);
+  font-family: var(--font-sans);
+}
+.th-map-popup .maplibregl-popup-close-button {
+  color: var(--dim);
+  font-size: 20px;
+  line-height: 1;
+  padding: 4px 9px;
+}
+.th-map-popup.maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+  border-top-color: var(--surface);
+}
+.th-map-popup.maplibregl-popup-anchor-top .maplibregl-popup-tip {
+  border-bottom-color: var(--surface);
+}
+.th-map-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+  border-right-color: var(--surface);
+}
+.th-map-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-left-color: var(--surface);
+}
+.ml-popup-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.ml-popup-title {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.35;
+  padding-right: 16px;
+}
+.ml-popup-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.ml-popup-chip {
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 0 8px;
+  border-radius: 9999px;
+  background: var(--surface-alt);
+  color: var(--dim);
+}
+.ml-popup-note {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--dim);
+}
+.ml-popup-pinnote {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dim);
+  opacity: 0.85;
+}
+.ml-popup-link {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Fallback info card (static-map mode) entrance */
+.place-card {
+  animation: map-popup-in 0.18s ease-out;
+}
+@keyframes map-popup-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .place-card {
+    animation: none;
+  }
+}

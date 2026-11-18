@@ -993,11 +993,28 @@ function MapSection({ places, projectPin }: { places: Place[]; projectPin: Proje
     let loaded = false;
     try {
       const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      /* Base map: CARTO raster tiles (OpenStreetMap data, WGS-84 — same
+         coordinate system as the verified pins/polygons). tile.openstreetmap.org
+         is unreachable/too slow on mainland-China networks, which left the
+         map with pins but no base map; CARTO's CDN loads reliably there. */
+      const cartoTiles = (path: string) =>
+        ["a", "b", "c", "d"].map(
+          (s) => `https://${s}.basemaps.cartocdn.com/${path}/{z}/{x}/{y}.png`,
+        );
       map = new maplibregl.Map({
         container: mapRef.current,
-        style: dark
-          ? "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
-          : "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+        style: {
+          version: 8,
+          sources: {
+            carto: {
+              type: "raster",
+              tiles: cartoTiles(dark ? "dark_all" : "rastertiles/voyager"),
+              tileSize: 256,
+              attribution: "© OpenStreetMap contributors © CARTO",
+            },
+          },
+          layers: [{ id: "carto", type: "raster", source: "carto" }],
+        },
         center: [114.402, 30.612],
         zoom: 12,
         attributionControl: { compact: true },

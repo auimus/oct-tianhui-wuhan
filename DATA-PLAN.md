@@ -134,6 +134,7 @@
 - 兜底：CDN 加载失败（window.maplibregl 缺失）、`maplibregl.supported()` 为假或构造抛错时不初始化地图，原 pinplot 经纬度投影示意图 + 详情卡（#map-fallback）保持显示且功能完整（点钉/点条目看详情）；地图 load 成功后才隐藏兜底并显示地图容器。页面其余内容不依赖地图加载状态。
 - 静态地图图（map-static.png 内嵌 figure）已从静态站地图板块移除（模板不再引用 images.mapStatic；privileged/脚本仍照常传参，无害）。重新生成后 static-site/index.html 约 3.6MB（比此前少了静态图 base64）。
 - 空间本体 App.tsx 地图未改动。
+- **底图瓦片源修正（2026-11-18）**：用户在国内用手机打开公网静态页反馈「没有底图」（只有图钉、无道路底图）。原因：静态站瓦片源 tile.openstreetmap.org 在国内网络经常加载不到/极慢。已将空间本体（App.tsx）与静态站模板（static_template.ts）两处地图的底图统一改为 CARTO basemaps 光栅瓦片（`https://{a,b,c,d}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png`，深色模式本体用同 CDN 的 dark_all 光栅；两条路径均已实测返回 200），attribution 改为「© OpenStreetMap contributors © CARTO」。CARTO 底图数据仍为 OpenStreetMap、坐标系仍为 WGS-84，全部已核实图钉与多边形位置不变；明确不采用高德/百度瓦片（GCJ-02 坐标会使图钉整体偏移）。
 
 ### 新增/更新标记机制（2026-11-18 edit: 标签/水印）
 **Used by**: 最新动态 feed 卡片 + 周边配套清单/地图弹窗 + 静态站同名渲染（.fresh-tag 样式，theme.css 与 static_template CSS 各一份，保持一致）

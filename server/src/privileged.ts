@@ -9,6 +9,7 @@ import {
   buildStaticReadme,
   buildStaticSiteHtml,
   type StaticImages,
+  type StaticMapLib,
   type StaticSiteData,
 } from "./static_template";
 
@@ -48,6 +49,22 @@ async function readImage(
   }
 }
 
+/* Vendored MapLibre GL dist sources, inlined into the static page so it
+   is self-contained (works from file:// / without CDN access). Either
+   file missing → null, and the template falls back to the CDN tags. */
+async function readMapLib(assetsDir: string): Promise<StaticMapLib> {
+  try {
+    const [js, css] = await Promise.all([
+      readFile(join(assetsDir, "maplibre-gl.min.js"), "utf8"),
+      readFile(join(assetsDir, "maplibre-gl.css"), "utf8"),
+    ]);
+    if (!js || !css) return null;
+    return { js, css };
+  } catch {
+    return null;
+  }
+}
+
 export const privilegedHandlers = definePrivilegedHandlers(privileged, {
   async writeStaticSite(args) {
     const data = JSON.parse(args.payloadJson) as StaticSiteData;
@@ -67,7 +84,8 @@ export const privilegedHandlers = definePrivilegedHandlers(privileged, {
         "image/png",
       ),
     };
-    const html = buildStaticSiteHtml(data, images);
+    const mapLib = await readMapLib(assetsDir);
+    const html = buildStaticSiteHtml(data, images, mapLib);
     const readme = buildStaticReadme(data);
     const outDir = join(args.spaceDir, "static-site");
     await mkdir(outDir, { recursive: true });

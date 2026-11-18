@@ -28,6 +28,7 @@ import {
   buildStaticReadme,
   buildStaticSiteHtml,
   type StaticImages,
+  type StaticMapLib,
   type StaticSiteData,
 } from "../server/src/static_template";
 
@@ -123,6 +124,17 @@ function readImage(name: string, mime: string): string | null {
   return `data:${mime};base64,${readFileSync(path).toString("base64")}`;
 }
 
+/* Vendored MapLibre GL dist sources for inlining (null → CDN fallback). */
+function readMapLib(): StaticMapLib {
+  const dir = join(spaceDir, "client", "src", "assets");
+  const jsPath = join(dir, "maplibre-gl.min.js");
+  const cssPath = join(dir, "maplibre-gl.css");
+  if (!existsSync(jsPath) || !existsSync(cssPath)) return null;
+  const js = readFileSync(jsPath, "utf8");
+  const css = readFileSync(cssPath, "utf8");
+  return js && css ? { js, css } : null;
+}
+
 /* Snapshot-moment weather from Open-Meteo (same source/coordinates as
    the live header). Any failure → null and the block is omitted. */
 async function loadWeather(): Promise<StaticSiteData["weather"]> {
@@ -216,7 +228,7 @@ const images: StaticImages = {
 const outDir = join(spaceDir, "static-site");
 mkdirSync(outDir, { recursive: true });
 const files = [
-  { name: "index.html", content: buildStaticSiteHtml(data, images) },
+  { name: "index.html", content: buildStaticSiteHtml(data, images, readMapLib()) },
   { name: "README.md", content: buildStaticReadme(data) },
   { name: ".nojekyll", content: "" },
 ];

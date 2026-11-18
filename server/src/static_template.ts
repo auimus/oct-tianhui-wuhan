@@ -166,6 +166,17 @@ export type StaticImages = {
   sample: string | null;
 };
 
+/** MapLibre GL library sources (dist JS + CSS text) inlined into the
+ *  generated page so the static site is self-contained — opening
+ *  index.html via file:// or from an offline/CDN-blocked network no
+ *  longer depends on jsdelivr. Null when the asset files could not be
+ *  read at generation time; the template then falls back to the CDN
+ *  <link>/<script src> tags. */
+export type StaticMapLib = {
+  js: string;
+  css: string;
+} | null;
+
 export function esc(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -508,7 +519,11 @@ function freshTagHtml(kind: "new" | "updated" | null): string {
   return `<span class="fresh-tag fresh-tag--${kind === "new" ? "new" : "updated"}">${kind === "new" ? "新增" : "更新"}</span>`;
 }
 
-export function buildStaticSiteHtml(data: StaticSiteData, images: StaticImages): string {
+export function buildStaticSiteHtml(
+  data: StaticSiteData,
+  images: StaticImages,
+  mapLib?: StaticMapLib,
+): string {
   const p = data.project;
   const prices = data.prices;
   const pins = collectPins(data);
@@ -725,6 +740,18 @@ ${evalRows}
   ).replace(/</g, "\\u003c");
   const snapshotJson = JSON.stringify(data).replace(/</g, "\\u003c");
 
+  /* MapLibre GL: inline the library when its sources were supplied
+     (self-contained page, works from file://); otherwise fall back to
+     the jsdelivr CDN tags. The vendored dist sources contain no
+     "</style" / "</script" sequences (verified at vendoring time), so
+     they are safe to embed verbatim. */
+  const mapLibCssTag = mapLib
+    ? `<style>${mapLib.css}</style>`
+    : `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.css"/>`;
+  const mapLibJsTag = mapLib
+    ? `<script>${mapLib.js}</script>`
+    : `<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.min.js"></script>`;
+
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -733,7 +760,7 @@ ${evalRows}
 <title>华侨城·天荟周边生活信息</title>
 <meta name="description" content="华侨城·天荟（武汉洪山区杨春湖高铁商务区）开发进展、房价走势、周边配套地图与时间线。"/>
 <style>${CSS}</style>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.css"/>
+${mapLibCssTag}
 </head>
 <body>
 <main>
@@ -865,7 +892,7 @@ ${evalHtml}
 </footer>
 </main>
 <script type="application/json" id="snapshot-data">${snapshotJson}</script>
-<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.min.js"></script>
+${mapLibJsTag}
 <script>
 var PIN_DATA = ${pinDataJson};
 function bindFilter(attr, itemAttr) {
@@ -1119,7 +1146,7 @@ export function buildStaticReadme(data: StaticSiteData): string {
 
 - 数据快照时间：${data.snapshotText}（${data.snapshotAt}，北京时间）
 - 内容：速览、最新动态（${data.feedItems.length} 条）、房价走势与分户型、周边配套地图与全部图钉数据（${data.places.length} 处配套）、片区时间线、项目档案、实地施工图
-- 形式：只有文本文件；图片已以 base64 内嵌进 index.html，不依赖任何后端接口。唯一的在线依赖是地图：MapLibre 库从 jsdelivr CDN 加载、底图用高德（AutoNavi）瓦片（GCJ-02，渲染时由存储的 WGS-84 坐标转换），与原空间同一套交互地图；CDN 或网络不可用时地图自动回退为内置的图钉分布示意图，其余内容不受影响
+- 形式：只有文本文件；图片已以 base64 内嵌进 index.html，地图库 MapLibre GL 的 JS 与 CSS 也已内嵌进 index.html，页面自包含、不依赖任何后端接口或外部 CDN（本地 file:// 打开也能用）。唯一的在线依赖是地图底图：高德（AutoNavi）瓦片（GCJ-02，渲染时由存储的 WGS-84 坐标转换），与原空间同一套交互地图；网络不可用或 WebGL 不可用时地图自动回退为内置的图钉分布示意图，其余内容不受影响
 
 ## 部署
 

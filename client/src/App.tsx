@@ -1261,6 +1261,46 @@ function SitePhotosSection({ data }: { data: SitePhotos }) {
   );
 }
 
+function StaticExportSection() {
+  const [msg, setMsg] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const exp = useMutation({
+    mutationFn: async () => await api.exportStaticSite({}),
+    onSuccess: (res) => {
+      setFailed(false);
+      setMsg(
+        `${res.message}（快照时间 ${new Date(res.snapshotAt).toLocaleString("zh-CN", { hour12: false })}，共 ${(res.totalBytes / 1024).toFixed(0)} KB）`,
+      );
+    },
+    onError: () => {
+      setFailed(true);
+      setMsg("静态站导出失败，请稍后再试。");
+    },
+  });
+  return (
+    <section aria-label="静态站导出" className="mt-10">
+      <h2 className="font-display text-2xl font-bold text-[var(--text)]">静态站导出 · 只读快照</h2>
+      <p className="mt-1 text-sm leading-relaxed text-[var(--dim)]">
+        把当前全部展示内容（速览、最新动态、房价走势与分户型、周边配套地图与图钉数据、时间线、项目档案、实地施工图）连同当时数据冻结成一个自包含的静态网站，生成到项目目录的
+        static-site/ 文件夹：只有文本文件，图片已内嵌，放到 nginx、GitHub Pages 等任意静态托管即可直接打开。静态站是只读快照，不会自动更新，页面上会注明数据快照时间；笔记、收藏等交互在静态站中不可用。每日同步到
+        GitHub 时也会自动重新生成一份。
+      </p>
+      <button
+        type="button"
+        aria-label="生成静态站快照"
+        disabled={exp.isPending}
+        onClick={() => exp.mutate()}
+        className="mt-3 rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+      >
+        {exp.isPending ? "正在生成…" : "生成静态站快照"}
+      </button>
+      {msg && (
+        <p className={`mt-2 text-sm ${failed ? "text-[var(--brick)]" : "text-[var(--accent)]"}`}>{msg}</p>
+      )}
+    </section>
+  );
+}
+
 function NotesSection() {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
@@ -1362,6 +1402,7 @@ export function App() {
             <TimelineSection milestones={overview.data.milestones} />
             <ArchiveSection project={overview.data.project} />
             <SitePhotosSection data={overview.data.sitePhotos} />
+            <StaticExportSection />
             <NotesSection />
             <footer className="mt-12 border-t border-[var(--border)] pt-4">
               <p className="text-xs leading-relaxed text-[var(--dim)]">

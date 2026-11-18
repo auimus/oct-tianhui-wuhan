@@ -113,6 +113,17 @@
 **Delivered by**: refreshFeed (spawnTask) -> saveFeedItems
 **Checked with**: browser.search evidence above proves the topics return fresh, dated results (Sep-Nov 2026 items found). Agent is instructed to prefer gov.cn / metro / hospital / school official sources over sales promos, keep source_url verbatim, never invent dates, and mark status honestly.
 
+### 静态站导出（2026-11-18 edit: static-site/ + exportStaticSite）
+**Used by**: static-site/ 文件夹（自包含只读快照）+ 页面「静态站导出」板块 + 每日 GitHub 同步前重新生成
+**Request**: 用户要求同步到 GitHub 时同时生成可直接部署的静态网站：全部展示内容连同当时数据冻结、自包含、不依赖后端、任意静态托管可打开；二进制资源以 base64 等文本形式内嵌，保证 static-site/ 只有文本文件且总大小尽量 <10MB（同步通道只能推文本）；只读快照注明数据快照时间；提供可调用动作按当前数据重新生成，本次先实际生成一份。
+**Implementation**:
+- 数据常量（PROJECT/PLACES/PLACE_GEO/MILESTONES/PRICES/PROJECT_PIN/SITE_PHOTOS/SEED_FEED）从 actions.ts 抽到 `server/src/data.ts`，live 动作与导出共用同一份数据，不会漂移。
+- `server/src/static_template.ts`：纯函数 HTML 构建器（速览/动态/房价与分户型/地图静态图+经纬度投影图钉图+全量配套清单/时间线/档案/施工图 + 内嵌全量 JSON），live 与本地脚本共用。
+- `server/src/privileged.ts`：特权契约 writeStaticSite（宿主侧读 client/src/assets 四张图转 base64、写 static-site/index.html + README.md + .nojekyll）。
+- 动作 `exportStaticSite`：从 DB 取当前动态（≤100 条，含收藏标记）+ 静态目录数据，组装快照载荷后调特权写文件，返回快照时间/文件数/总字节。每日同步任务调用它重新生成；页面也有「生成静态站快照」按钮可手动触发。
+- 本地等价脚本 `scripts/generate-static-site.ts`（bun 运行，直读 app.db + data.ts），本次已实际生成一份：static-site/ 共 3 个文本文件、约 3.8MB（index.html 约 3.9MB，四张图 base64 内嵌：航拍 PNG 为主要体积），远低于 10MB 上限。
+- 注：当前页面已无「武汉侨城会」公众号追踪板块（2026-11-17 用户决定不集成），静态快照与 live 页面板块保持一致，不含该板块；若日后恢复该板块，模板需同步加一节。
+
 ## Long-term data behavior
 - **Refresh policy**: Daily cron (per refresh_triggers) calls refreshFeed silently; manual 刷新 button also available. Static archive/places change only when refresh finds a verified status change; feed is append/dedupe by URL.
 - **Growth**: Feed grows ~5-15 items per refresh, capped display at latest 100 with category filter; places fixed catalog (~28 rows) updated in place; user notes/bookmarks grow with user use only.

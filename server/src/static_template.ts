@@ -382,8 +382,6 @@ p{margin:6px 0}
 a{color:var(--accent)}
 .dim{color:var(--dim)}
 .small{font-size:13px}
-.snapshot{border:2px solid var(--brick);background:var(--brick-soft);border-radius:var(--radius);padding:12px 16px;margin-bottom:18px}
-.snapshot strong{color:var(--brick)}
 nav.toc{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
 nav.toc a{border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:4px 12px;text-decoration:none;font-size:14px;color:var(--text)}
 .kicker{font-size:12px;letter-spacing:.18em;color:var(--accent);font-weight:600}
@@ -452,6 +450,32 @@ summary{cursor:pointer;color:var(--accent);font-size:14px}
 .eval-row .lab{width:72px;flex-shrink:0;font-weight:700;font-size:14px}
 .eval-row .sc{width:32px;flex-shrink:0;text-align:right;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums}
 .eval-basis{margin:3px 0 0 84px;font-size:14px;color:var(--dim)}
+.ml-map{width:100%;height:440px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface-alt)}
+@media(max-width:640px){.ml-map{height:380px}}
+.ml-pin{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9999px;background:#fff;font-size:15px;line-height:1;border:2.5px solid var(--accent);box-shadow:0 1px 5px rgb(0 0 0/.35);cursor:pointer;padding:0;font-family:inherit}
+.ml-pin--st-open{border-color:#059669;background:#ddf3e9}
+.ml-pin--st-building{border-color:#d97706;background:#fdf0dc}
+.ml-pin--st-planned{border-color:#64748b;background:#e9edf1}
+.ml-pin--on{transform:scale(1.3);border-width:3px;box-shadow:0 3px 10px rgb(0 0 0/.45)}
+@media (prefers-color-scheme:dark){.ml-pin--st-open{background:#173f31}.ml-pin--st-building{background:#4d3a14}.ml-pin--st-planned{background:#2e3742}}
+.map-badge{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:9999px;background:var(--surface-alt);font-size:14px;line-height:1;border:2px solid var(--accent);flex-shrink:0}
+.map-badge--st-open{border-color:#059669;background:#ddf3e9}
+.map-badge--st-building{border-color:#d97706;background:#fdf0dc}
+.map-badge--st-planned{border-color:#64748b;background:#e9edf1}
+@media (prefers-color-scheme:dark){.map-badge--st-open{background:#173f31}.map-badge--st-building{background:#4d3a14}.map-badge--st-planned{background:#2e3742}}
+.th-map-popup .maplibregl-popup-content{background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px 12px;box-shadow:0 8px 28px rgb(0 0 0/.28);font-family:"Noto Sans SC",system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+.th-map-popup .maplibregl-popup-close-button{color:var(--dim);font-size:20px;line-height:1;padding:4px 9px;background:none;border:none;cursor:pointer}
+.th-map-popup.maplibregl-popup-anchor-bottom .maplibregl-popup-tip{border-top-color:var(--surface)}
+.th-map-popup.maplibregl-popup-anchor-top .maplibregl-popup-tip{border-bottom-color:var(--surface)}
+.th-map-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip{border-right-color:var(--surface)}
+.th-map-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip{border-left-color:var(--surface)}
+.ml-popup-head{display:flex;align-items:flex-start;gap:10px}
+.ml-popup-title{font-size:16px;font-weight:700;line-height:1.35;padding-right:16px;margin:0}
+.ml-popup-chips{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 0}
+.ml-popup-chip{font-size:12px;line-height:1.5;padding:0 8px;border-radius:9999px;background:var(--surface-alt);color:var(--dim)}
+.ml-popup-note{margin:8px 0 0;font-size:14px;line-height:1.6;color:var(--dim)}
+.ml-popup-pinnote{margin:6px 0 0;font-size:12px;line-height:1.5;color:var(--dim);opacity:.85}
+.ml-popup-link{display:inline-block;margin-top:6px;padding:2px 0;font-size:14px;font-weight:500;color:var(--accent);text-decoration:underline;text-underline-offset:2px}
 `;
 
 function chipForStatus(status: string): string {
@@ -692,6 +716,8 @@ ${evalRows}
       distanceText: pin.distanceText,
       lat: pin.lat,
       lng: pin.lng,
+      polygon: pin.polygon,
+      statusKey: statusKey(pin.status),
       typeLabel: iconFor(pin.category, pin.label).typeLabel,
       glyph: iconFor(pin.category, pin.label).glyph,
       freshKind: placeFreshKind(pin, today),
@@ -704,16 +730,13 @@ ${evalRows}
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>华侨城·天荟周边生活信息（静态快照 ${esc(data.snapshotText)}）</title>
-<meta name="description" content="华侨城·天荟（武汉洪山区杨春湖高铁商务区）开发进展、房价走势、周边配套地图与时间线的只读静态快照，数据快照时间 ${esc(data.snapshotText)}。"/>
+<title>华侨城·天荟周边生活信息</title>
+<meta name="description" content="华侨城·天荟（武汉洪山区杨春湖高铁商务区）开发进展、房价走势、周边配套地图与时间线。"/>
 <style>${CSS}</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.css"/>
 </head>
 <body>
 <main>
-<div class="snapshot" role="note">
-<strong>只读静态快照</strong> · 数据快照时间：<time datetime="${esc(data.snapshotAt)}">${esc(data.snapshotText)}</time>（北京时间）。本页由「华侨城天荟周边生活信息」空间在快照时刻的全部展示数据冻结生成，不连接任何后端、不会自动更新；笔记、收藏等交互功能在此版本中不可用。要看最新数据请回到原空间，或重新生成快照。
-</div>
-
 <header>
 <div class="head-flex">
 <div style="min-width:0">
@@ -721,10 +744,10 @@ ${evalRows}
 <h1>华侨城·天荟</h1>
 <p class="dim">${esc(p.address)} · ${esc(p.developer)}</p>
 </div>
-${data.weather ? `<div class="weather" aria-label="项目所在地天气（快照时刻）">
+${data.weather ? `<div class="weather" aria-label="项目所在地天气">
 <p class="wmain" style="margin:0"><span aria-hidden="true">${esc(data.weather.icon)}</span> ${esc(data.weather.label)} <span class="wt">${Math.round(data.weather.tempC)}°C</span></p>
 <p class="small dim" style="margin:2px 0 0">今日 ${Math.round(data.weather.lowC)}~${Math.round(data.weather.highC)}°C · 湿度 ${Math.round(data.weather.humidity)}% · 风 ${Math.round(data.weather.windKmh)} km/h</p>
-<p class="small dim" style="margin:0">项目所在地天气 · Open-Meteo（快照时刻数据）</p>
+<p class="small dim" style="margin:0">项目所在地天气 · Open-Meteo</p>
 </div>` : ""}
 </div>
 <p style="margin-top:10px"><span class="countdown">${days > 0 ? days : "—"}</span> 天后 · 一期预计交付（2027-06-30）</p>
@@ -743,11 +766,11 @@ ${data.weather ? `<div class="weather" aria-label="项目所在地天气（快�
 
 <section id="feed" aria-label="最新动态">
 <h2>最新动态</h2>
-<p class="dim small">快照共 ${data.feedItems.length} 条（按发布日期倒序）。点分类可筛选；收藏标记为快照时刻的状态。带「新增」标记的为最近一次刷新加入的动态。</p>
+<p class="dim small">共 ${data.feedItems.length} 条（按发布日期倒序）。点分类可筛选。带「新增」标记的为最近一次刷新加入的动态。</p>
 <div class="filters" role="group" aria-label="动态分类筛选">
 ${feedCats.map((c, i) => `<button type="button" data-feed-filter="${esc(c)}" aria-pressed="${i === 0 ? "true" : "false"}">${esc(c)}</button>`).join("")}
 </div>
-${feedHtml || '<p class="dim">快照时动态流为空。</p>'}
+${feedHtml || '<p class="dim">暂无动态。</p>'}
 </section>
 
 <section id="prices" aria-label="房价走势">
@@ -794,13 +817,15 @@ ${ychChart}
 
 <section id="map" aria-label="周边地图与配套">
 <h2>周边地图 · 配套全图</h2>
-<p class="dim" style="font-size:14px">图标区分类型，颜色区分状态（绿＝已运营、橙＝在建、灰＝规划中）。静态站不加载在线地图瓦片：下方先是含全部图钉的静态地图图，再是一张按真实经纬度投影的图钉分布图——点击图钉或下方条目可查看该地点详情；有实测范围的点位在分布图里以虚线画出轮廓。少数配套为按公开地址推定的近似定位，详情里的图钉说明有标注。距离为直线距离参考。</p>
-<p class="dim small">共 ${data.places.length} 处配套 · 已运营 ${counts.get("已运营") ?? 0} · 在建 ${counts.get("在建") ?? 0} · 规划中 ${counts.get("规划中") ?? 0}；其中 ${pins.length - 1} 处已上图（另含本项目图钉）。带「新增 / 更新」标记的为快照日期前两周内新纳入目录或内容有更正的配套。</p>
+<p class="dim" style="font-size:14px">图标区分类型，颜色区分状态（绿＝已运营、橙＝在建、灰＝规划中）。地图可以拖动、缩放：点击图钉，弹窗会锚定在图钉旁显示名称与说明，页面不会跳动；点下方条目，地图会平移定位并打开同一弹窗。手机上单指拖动即可平移、双指捏合缩放。有实测范围的点位，点击其图钉时才会以虚线显示范围轮廓，平时不显示。少数配套为按公开地址推定的近似定位，弹窗的图钉说明里有标注。距离为直线距离参考。</p>
+<p class="dim small">共 ${data.places.length} 处配套 · 已运营 ${counts.get("已运营") ?? 0} · 在建 ${counts.get("在建") ?? 0} · 规划中 ${counts.get("规划中") ?? 0}；其中 ${pins.length - 1} 处已上图（另含本项目图钉）。带「新增 / 更新」标记的为近两周内新纳入目录或内容有更正的配套。</p>
 <p>${legendHtml}</p>
 <p><span class="chip chip-open">● 已运营</span><span class="chip chip-building">● 在建</span><span class="chip chip-planned">● 规划中</span></p>
-${images.mapStatic ? `<figure><img src="${images.mapStatic}" alt="华侨城天荟周边静态地图：图钉标出本项目与周边配套（车站、学校、商场、医院、公园等）的位置" loading="lazy"/><figcaption>静态地图图（© OpenStreetMap contributors）。</figcaption></figure>` : ""}
+<div id="ml-map" class="ml-map hidden" role="application" aria-label="周边配套交互地图（可拖动缩放，点击图钉查看详情）"></div>
+<div id="map-fallback">
 ${pinPlotSvg(pins)}
 <div id="pin-detail" class="card" aria-live="polite"><p class="dim" style="margin:0">点击上方分布图的任意图钉，这里会显示该地点的名称、状态与说明。</p></div>
+</div>
 <div class="filters" role="group" aria-label="配套分类筛选">
 ${placeCats.map((c, i) => `<button type="button" data-place-filter="${esc(c)}" aria-pressed="${i === 0 ? "true" : "false"}">${esc(c)}</button>`).join("")}
 </div>
@@ -836,10 +861,11 @@ ${evalHtml}
 
 <footer>
 <p>本页信息来自公开报道与政府公示，销售宣传口径与官方口径冲突时以官方为准；房价、划片、交付时间等请以售楼处与主管部门最新公示核实。</p>
-<p>静态快照生成时间：${esc(data.snapshotText)}（${esc(data.snapshotAt)}）。本文件夹（static-site/）为自包含静态网站：只有 index.html 与说明文件，图片已以 base64 内嵌，无需任何后端，放到 nginx、GitHub Pages 等任意静态托管即可打开。重新生成：在原空间调用 exportStaticSite 动作，或在本项目目录运行 <code>bun scripts/generate-static-site.ts</code>。</p>
+<p class="small dim">本页内容截至 ${esc(data.snapshotText)}（北京时间），为静态页面，不会自动更新。</p>
 </footer>
 </main>
 <script type="application/json" id="snapshot-data">${snapshotJson}</script>
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.min.js"></script>
 <script>
 var PIN_DATA = ${pinDataJson};
 function bindFilter(attr, itemAttr) {
@@ -873,6 +899,7 @@ bindFilter("data-feed-filter", "data-feed-cat");
       document.querySelectorAll("[data-poly-cat]").forEach(function (el) {
         el.classList.toggle("hidden", !(cat === "全部" || el.getAttribute("data-poly-cat") === cat));
       });
+      syncMapFilter(cat);
     });
   });
 })();
@@ -895,11 +922,154 @@ document.querySelectorAll("[data-pin-idx]").forEach(function (el) {
 document.querySelectorAll("[data-place-idx]").forEach(function (el) {
   el.addEventListener("click", function (e) {
     if (e.target && e.target.closest && e.target.closest("a")) return;
-    selectPin(Number(el.getAttribute("data-place-idx")));
-    var plot = document.querySelector(".pinplot");
-    if (plot && plot.scrollIntoView) plot.scrollIntoView({ behavior: "smooth", block: "center" });
+    var idx = Number(el.getAttribute("data-place-idx"));
+    if (mapReady) {
+      var wrap = document.getElementById("ml-map");
+      if (wrap && wrap.scrollIntoView) wrap.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      selectMapPin(idx, { fly: true });
+    } else {
+      selectPin(idx);
+      var plot = document.querySelector(".pinplot");
+      if (plot && plot.scrollIntoView) plot.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
   });
 });
+/* Interactive MapLibre map — same setup as the live space: real basemap
+   (OpenStreetMap raster tiles), HTML markers with type glyphs + status
+   colors, a popup anchored to the clicked pin, and the selected place's
+   verified polygon shown dashed only while selected. If the CDN library
+   fails to load or WebGL is unavailable, the static pin-plot fallback
+   above stays visible and fully functional; nothing else on the page
+   depends on the map. */
+var mlMap = null;
+var mlMarkers = [];
+var mlPopup = null;
+var mlSelected = null;
+var mlCategory = "全部";
+var mapReady = false;
+function buildPopupHtml(d) {
+  var fresh = d.freshKind ? "<span class='fresh-tag fresh-tag--" + (d.freshKind === "new" ? "new" : "updated") + "'>" + (d.freshKind === "new" ? "新增" : "更新") + "</span>" : "";
+  var chips = "<span class='ml-popup-chip'>" + d.typeLabel + "</span><span class='ml-popup-chip'>● " + d.status + "</span>" + (d.distanceText ? "<span class='ml-popup-chip'>" + d.distanceText + "</span>" : "");
+  return "<div class='ml-popup-head'><span class='map-badge map-badge--st-" + d.statusKey + "' aria-hidden='true'>" + d.glyph + "</span><div><h3 class='ml-popup-title'>" + d.label + "</h3><p class='ml-popup-chips'>" + fresh + chips + "</p></div></div>" +
+    "<p class='ml-popup-note'>" + d.note + "</p>" +
+    (d.pinNote ? "<p class='ml-popup-pinnote'>图钉说明：" + d.pinNote + "</p>" : "") +
+    "<a class='ml-popup-link' target='_blank' rel='noopener' href='https://www.google.com/maps/dir/?api=1&destination=" + d.lat + "," + d.lng + "'>导航到这里 →</a>";
+}
+function applyMapPolygon() {
+  if (!mlMap || !mlMap.getLayer("place-polygons-fill")) return;
+  var f = ["==", ["get", "key"], mlSelected === null ? "__none__" : String(mlSelected)];
+  mlMap.setFilter("place-polygons-fill", f);
+  mlMap.setFilter("place-polygons-line", f);
+}
+function selectMapPin(idx, opts) {
+  var d = PIN_DATA[idx];
+  if (!d || !mlMap || !mlPopup) return;
+  mlSelected = idx;
+  mlMarkers.forEach(function (m, i) { if (m) m.getElement().classList.toggle("ml-pin--on", i === idx); });
+  applyMapPolygon();
+  mlPopup.setLngLat([d.lng, d.lat]);
+  mlPopup.setHTML(buildPopupHtml(d));
+  if (!mlPopup.isOpen()) mlPopup.addTo(mlMap);
+  if (opts && opts.fly) {
+    mlMap.flyTo({ center: [d.lng, d.lat], zoom: Math.max(mlMap.getZoom(), 13.5), speed: 1.2, essential: true });
+  }
+}
+function deselectMapPin() {
+  mlSelected = null;
+  mlMarkers.forEach(function (m) { if (m) m.getElement().classList.remove("ml-pin--on"); });
+  applyMapPolygon();
+  if (mlPopup && mlPopup.isOpen()) mlPopup.remove();
+}
+function syncMapFilter(cat) {
+  mlCategory = cat;
+  if (!mapReady) return;
+  mlMarkers.forEach(function (m, i) {
+    if (!m) return;
+    var d = PIN_DATA[i];
+    var show = cat === "全部" || i === 0 || (d && d.category === cat);
+    m.getElement().style.display = show ? "" : "none";
+  });
+  if (mlSelected !== null && mlSelected !== 0 && cat !== "全部") {
+    var d = PIN_DATA[mlSelected];
+    if (d && d.category !== cat) deselectMapPin();
+  }
+}
+(function initMlMap() {
+  var wrap = document.getElementById("ml-map");
+  var fallback = document.getElementById("map-fallback");
+  if (!wrap || !window.maplibregl) return;
+  var supported = false;
+  try { supported = maplibregl.supported(); } catch (e) { supported = false; }
+  if (!supported) return;
+  var map;
+  try {
+    map = new maplibregl.Map({
+      container: wrap,
+      style: {
+        version: 8,
+        sources: {
+          osm: {
+            type: "raster",
+            tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+            tileSize: 256,
+            attribution: "© OpenStreetMap contributors"
+          }
+        },
+        layers: [{ id: "osm", type: "raster", source: "osm" }]
+      },
+      center: [114.402, 30.612],
+      zoom: 12,
+      attributionControl: { compact: true },
+      locale: {
+        "NavigationControl.ZoomIn": "放大",
+        "NavigationControl.ZoomOut": "缩小",
+        "NavigationControl.ResetBearing": "重置方向",
+        "AttributionControl.ToggleAttribution": "地图信息"
+      }
+    });
+  } catch (e) { return; }
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+  var popup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, offset: 20, maxWidth: "320px", className: "th-map-popup" });
+  mlPopup = popup;
+  popup.on("close", function () {
+    if (mlSelected !== null) {
+      mlSelected = null;
+      mlMarkers.forEach(function (m) { if (m) m.getElement().classList.remove("ml-pin--on"); });
+      applyMapPolygon();
+    }
+  });
+  map.on("load", function () {
+    mlMap = map;
+    var features = [];
+    PIN_DATA.forEach(function (d, i) {
+      if (d.polygon) {
+        features.push({ type: "Feature", properties: { key: String(i), status: d.status }, geometry: { type: "Polygon", coordinates: [d.polygon] } });
+      }
+    });
+    map.addSource("place-polygons", { type: "geojson", data: { type: "FeatureCollection", features: features } });
+    var statusColor = ["match", ["get", "status"], "在建", "#d97706", "规划中", "#64748b", "#059669"];
+    var noneFilter = ["==", ["get", "key"], "__none__"];
+    map.addLayer({ id: "place-polygons-fill", type: "fill", source: "place-polygons", filter: noneFilter, paint: { "fill-color": statusColor, "fill-opacity": 0.16 } });
+    map.addLayer({ id: "place-polygons-line", type: "line", source: "place-polygons", filter: noneFilter, paint: { "line-color": statusColor, "line-width": 2, "line-opacity": 0.9, "line-dasharray": [2, 1.6] } });
+    PIN_DATA.forEach(function (d, i) {
+      var el = document.createElement("button");
+      el.type = "button";
+      el.className = "ml-pin ml-pin--st-" + d.statusKey;
+      el.textContent = d.glyph;
+      el.setAttribute("aria-label", "在地图上查看：" + d.label);
+      el.addEventListener("click", function (e) { e.stopPropagation(); selectMapPin(i); });
+      mlMarkers[i] = new maplibregl.Marker({ element: el }).setLngLat([d.lng, d.lat]).addTo(map);
+    });
+    wrap.classList.remove("hidden");
+    if (fallback) fallback.classList.add("hidden");
+    mapReady = true;
+    map.resize();
+    var bounds = new maplibregl.LngLatBounds();
+    PIN_DATA.forEach(function (d) { bounds.extend([d.lng, d.lat]); });
+    map.fitBounds(bounds, { padding: 44, maxZoom: 14, duration: 0 });
+    syncMapFilter(mlCategory);
+  });
+})();
 </script>
 </body>
 </html>`;
@@ -912,7 +1082,7 @@ export function buildStaticReadme(data: StaticSiteData): string {
 
 - 数据快照时间：${data.snapshotText}（${data.snapshotAt}，北京时间）
 - 内容：速览、最新动态（${data.feedItems.length} 条）、房价走势与分户型、周边配套地图与全部图钉数据（${data.places.length} 处配套）、片区时间线、项目档案、实地施工图
-- 形式：只有文本文件；图片已以 base64 内嵌进 index.html，不依赖任何后端接口或外部资源（外链仅为来源/导航链接，可不点）
+- 形式：只有文本文件；图片已以 base64 内嵌进 index.html，不依赖任何后端接口。唯一的在线依赖是地图：MapLibre 库从 jsdelivr CDN 加载、底图用 OpenStreetMap 瓦片，与原空间同一套交互地图；CDN 或网络不可用时地图自动回退为内置的图钉分布示意图，其余内容不受影响
 
 ## 部署
 

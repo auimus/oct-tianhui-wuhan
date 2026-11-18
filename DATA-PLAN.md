@@ -123,6 +123,17 @@
 - 动作 `exportStaticSite`：从 DB 取当前动态（≤100 条，含收藏标记）+ 静态目录数据，组装快照载荷后调特权写文件，返回快照时间/文件数/总字节。每日同步任务调用它重新生成；页面也有「生成静态站快照」按钮可手动触发。
 - 本地等价脚本 `scripts/generate-static-site.ts`（bun 运行，直读 app.db + data.ts），本次已实际生成一份：static-site/ 共 3 个文本文件、约 3.8MB（index.html 约 3.9MB，四张图 base64 内嵌：航拍 PNG 为主要体积），远低于 10MB 上限。
 - 注：当前页面已无「武汉侨城会」公众号追踪板块（2026-11-17 用户决定不集成），静态快照与 live 页面板块保持一致，不含该板块；若日后恢复该板块，模板需同步加一节。
+- **呈现规则（用户 2026-11-18 指示）**：静态页正文不出现「只读静态快照 / 数据冻结 / 不连接后端」一类元描述——已删除页首砖红色快照横幅、标题与 meta 中的快照字样、正文各处「快照时刻 / 快照共 N 条 / 快照日期」措辞及页脚的部署技术说明；仅页脚保留一句小字：「本页内容截至 <快照时间>（北京时间），为静态页面，不会自动更新。」快照时间仍保留在内嵌 JSON 与 README.md 中供维护使用。
+
+### 静态站交互地图（2026-11-18 edit: 用户「地图没必要也是静态的吧」）
+**Used by**: 静态站（static_template.ts）周边地图板块
+**决定**: 静态站地图不再用静态地图图 + 经纬度投影示意图作主视图，改为与空间本体同一套 MapLibre GL 交互地图：
+- 库从 jsdelivr CDN 加载（构建时实测 200）：`https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.min.js` 与 `https://cdn.jsdelivr.net/npm/maplibre-gl@4/dist/maplibre-gl.css`；底图为内联 style JSON + OpenStreetMap 栅格瓦片 `https://tile.openstreetmap.org/{z}/{x}/{y}.png`（标注 © OpenStreetMap contributors）。
+- 图钉为 HTML marker：分类字形 + 状态色（与本体一致），坐标全部沿用 PIN_DATA 核实值（项目 30.6092, 114.4015；工业四路站真实坐标不偏移）；点击图钉弹出锚定 popup（名称/分类/状态/距离/新增·更新标签/图钉说明/导航链接）；已核实多边形仅在选中时以虚线显示（PIN_DATA 新增 polygon/statusKey 字段，33 钉中 10 个带多边形）；中文控件文案；单指拖动平移、双指捏合缩放（不启用 cooperativeGestures）。
+- 联动：分类筛选同步增减图钉；点配套清单条目 → 地图 flyTo 对应图钉并打开 popup（不再滚动到示意图）。
+- 兜底：CDN 加载失败（window.maplibregl 缺失）、`maplibregl.supported()` 为假或构造抛错时不初始化地图，原 pinplot 经纬度投影示意图 + 详情卡（#map-fallback）保持显示且功能完整（点钉/点条目看详情）；地图 load 成功后才隐藏兜底并显示地图容器。页面其余内容不依赖地图加载状态。
+- 静态地图图（map-static.png 内嵌 figure）已从静态站地图板块移除（模板不再引用 images.mapStatic；privileged/脚本仍照常传参，无害）。重新生成后 static-site/index.html 约 3.6MB（比此前少了静态图 base64）。
+- 空间本体 App.tsx 地图未改动。
 
 ### 新增/更新标记机制（2026-11-18 edit: 标签/水印）
 **Used by**: 最新动态 feed 卡片 + 周边配套清单/地图弹窗 + 静态站同名渲染（.fresh-tag 样式，theme.css 与 static_template CSS 各一份，保持一致）

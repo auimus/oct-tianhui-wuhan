@@ -250,6 +250,47 @@
   text-underline-offset: 2px;
 }
 
+/* 新增/更新 freshness tags: small pills marking recently added or changed
+   data. 新增 uses the theme accent (soft bg, deep text); 更新 uses a soft
+   slate tone. Restrained on purpose — same family as the status badges. */
+.fresh-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 7px;
+  height: 19px;
+  border-radius: 9999px;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.fresh-tag--new {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+.fresh-tag--updated {
+  background: #e9edf1;
+  color: #52657a;
+  border: 1px solid #94a7ba;
+}
+@media (prefers-color-scheme: dark) {
+  .fresh-tag--updated {
+    background: #2e3742;
+    color: #a9bfd4;
+    border-color: #5b7189;
+  }
+}
+
+/* Watermark-style hint for feed cards from the latest refresh: a soft
+   accent hairline on the left plus a very light accent wash. */
+.feed-fresh {
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent-soft) 38%, var(--surface));
+}
+
 /* Fallback info card (static-map mode) entrance */
 .place-card {
   animation: map-popup-in 0.18s ease-out;

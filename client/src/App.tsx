@@ -41,6 +41,40 @@ type Prices = Overview["prices"];
 type UnitType = Prices["unitTypes"][number];
 type ProjectPin = Overview["projectPin"];
 type SitePhotos = Overview["sitePhotos"];
+type Weather = NonNullable<Overview["weather"]>;
+type Evaluation = Overview["evaluation"];
+
+/* Client-side fallback for the header weather: when the server could not
+   reach Open-Meteo (weather === null), the browser fetches it directly
+   (Open-Meteo allows CORS). Same WMO-code wording as the server. */
+function weatherTextClient(code: number): { label: string; icon: string } {
+  if (code === 0) return { label: "晴", icon: "☀️" };
+  if (code === 1) return { label: "晴间多云", icon: "🌤️" };
+  if (code === 2) return { label: "多云", icon: "⛅" };
+  if (code === 3) return { label: "阴", icon: "☁️" };
+  if (code === 45 || code === 48) return { label: "雾", icon: "🌫️" };
+  if (code === 51 || code === 53 || code === 55) return { label: "毛毛雨", icon: "🌦️" };
+  if (code === 56 || code === 57) return { label: "冻毛毛雨", icon: "🌦️" };
+  if (code === 61) return { label: "小雨", icon: "🌧️" };
+  if (code === 63) return { label: "中雨", icon: "🌧️" };
+  if (code === 65) return { label: "大雨", icon: "🌧️" };
+  if (code === 66 || code === 67) return { label: "冻雨", icon: "🌧️" };
+  if (code === 71) return { label: "小雪", icon: "🌨️" };
+  if (code === 73) return { label: "中雪", icon: "🌨️" };
+  if (code === 75) return { label: "大雪", icon: "🌨️" };
+  if (code === 77) return { label: "雪粒", icon: "🌨️" };
+  if (code === 80 || code === 81) return { label: "阵雨", icon: "🌦️" };
+  if (code === 82) return { label: "暴雨", icon: "🌧️" };
+  if (code === 85 || code === 86) return { label: "阵雪", icon: "🌨️" };
+  if (code === 95) return { label: "雷阵雨", icon: "⛈️" };
+  if (code === 96 || code === 99) return { label: "雷阵雨伴冰雹", icon: "⛈️" };
+  return { label: "天气未知", icon: "🌡️" };
+}
+
+const OPEN_METEO_URL =
+  "https://api.open-meteo.com/v1/forecast?latitude=30.6092&longitude=114.4015" +
+  "&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m" +
+  "&daily=temperature_2m_max,temperature_2m_min&timezone=Asia%2FShanghai&forecast_days=1";
 
 function fmtPrice(n: number): string {
   return n.toLocaleString("zh-CN");
@@ -77,6 +111,41 @@ function statusStyle(status: string): string {
   return "bg-[var(--surface-alt)] text-[var(--dim)]";
 }
 
+/* Freshness tags for catalog places: 新增 when addedOn is within 14 days,
+   更新 when updatedOn is (addedOn wins when both qualify). Dates are
+   YYYY-MM-DD catalog maintenance dates from server/src/data.ts. */
+function daysSinceDateText(dateText: string): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateText);
+  if (!m) return null;
+  const target = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((today.getTime() - target.getTime()) / 86400000);
+}
+
+function placeFreshKind(p: {
+  addedOn: string | null;
+  updatedOn: string | null;
+}): "new" | "updated" | null {
+  if (p.addedOn) {
+    const d = daysSinceDateText(p.addedOn);
+    if (d !== null && d >= 0 && d <= 14) return "new";
+  }
+  if (p.updatedOn) {
+    const d = daysSinceDateText(p.updatedOn);
+    if (d !== null && d >= 0 && d <= 14) return "updated";
+  }
+  return null;
+}
+
+function FreshTag({ kind }: { kind: "new" | "updated" }) {
+  return (
+    <span className={`fresh-tag fresh-tag--${kind === "new" ? "new" : "updated"}`}>
+      {kind === "new" ? "新增" : "更新"}
+    </span>
+  );
+}
+
 function categoryStyle(category: string): string {
   switch (category) {
     case "交通":
@@ -90,8 +159,70 @@ function categoryStyle(category: string): string {
   }
 }
 
-function PulseHeader({ project, feedCount }: { project: Project; feedCount: number }) {
+function PulseHeader({
+  project,
+  feedCount,
+  weather,
+}: {
+  project: Project;
+  feedCount: number;
+  weather: Weather | null;
+}) {
   const days = daysUntil("2027-06-30");
+  const [fallbackWeather, setFallbackWeather] = useState<Weather | null>(null);
+
+  /* Server weather missing → try Open-Meteo straight from the browser. */
+  useEffect(() => {
+    if (weather !== null) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(OPEN_METEO_URL);
+        if (!res.ok) return;
+        const j = (await res.json()) as {
+          current?: {
+            time?: string;
+            temperature_2m?: number;
+            relative_humidity_2m?: number;
+            weather_code?: number;
+            wind_speed_10m?: number;
+          };
+          daily?: { temperature_2m_max?: number[]; temperature_2m_min?: number[] };
+        };
+        const cur = j.current;
+        const high = j.daily?.temperature_2m_max?.[0];
+        const low = j.daily?.temperature_2m_min?.[0];
+        if (
+          !cancelled &&
+          cur &&
+          typeof cur.temperature_2m === "number" &&
+          typeof cur.weather_code === "number" &&
+          typeof high === "number" &&
+          typeof low === "number"
+        ) {
+          const t = weatherTextClient(cur.weather_code);
+          setFallbackWeather({
+            tempC: cur.temperature_2m,
+            code: cur.weather_code,
+            label: t.label,
+            icon: t.icon,
+            highC: high,
+            lowC: low,
+            humidity: cur.relative_humidity_2m ?? 0,
+            windKmh: cur.wind_speed_10m ?? 0,
+            observedAt: cur.time ?? "",
+          });
+        }
+      } catch {
+        /* weather stays hidden — it must never break the header */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [weather]);
+
+  const w = weather ?? fallbackWeather;
   const anchors = [
     { label: "地铁 4 号线工业四路站", value: "177 米" },
     { label: "武汉站（高铁）", value: "1.5 公里" },
@@ -100,13 +231,30 @@ function PulseHeader({ project, feedCount }: { project: Project; feedCount: numb
   ];
   return (
     <header className="border-b-2 border-[var(--text)] pb-5">
-      <p className="text-xs font-medium tracking-[0.2em] text-[var(--accent)]">
-        武汉 · 洪山 · 杨春湖高铁商务区（东湖新城）
-      </p>
-      <h1 className="font-display mt-2 text-4xl font-black leading-tight text-[var(--text)]">
-        华侨城·天荟
-      </h1>
-      <p className="mt-1 text-sm text-[var(--dim)]">{project.address} · {project.developer}</p>
+      <div className="flex flex-wrap items-start justify-between gap-x-5 gap-y-2">
+        <div className="min-w-0">
+          <p className="text-xs font-medium tracking-[0.2em] text-[var(--accent)]">
+            武汉 · 洪山 · 杨春湖高铁商务区（东湖新城）
+          </p>
+          <h1 className="font-display mt-2 text-4xl font-black leading-tight text-[var(--text)]">
+            华侨城·天荟
+          </h1>
+          <p className="mt-1 text-sm text-[var(--dim)]">{project.address} · {project.developer}</p>
+        </div>
+        {w && (
+          <div className="shrink-0 text-left sm:pt-5 sm:text-right" aria-label="项目所在地当前天气">
+            <p className="font-display text-xl font-bold leading-tight text-[var(--text)]">
+              <span aria-hidden>{w.icon}</span> {w.label}{" "}
+              <span className="tabular-nums text-[var(--accent)]">{Math.round(w.tempC)}°C</span>
+            </p>
+            <p className="mt-0.5 text-xs tabular-nums text-[var(--dim)]">
+              今日 {Math.round(w.lowC)}~{Math.round(w.highC)}°C · 湿度 {Math.round(w.humidity)}% · 风{" "}
+              {Math.round(w.windKmh)} km/h
+            </p>
+            <p className="mt-0.5 text-xs text-[var(--dim)]">项目所在地天气 · Open-Meteo</p>
+          </div>
+        )}
+      </div>
 
       <div className="mt-4 flex flex-wrap items-baseline gap-x-6 gap-y-2">
         <div>
@@ -180,6 +328,7 @@ function FeedSection() {
           {refresh.isPending ? "正在启动…" : "↻ 刷新动态"}
         </button>
       </div>
+      <p className="mt-1 text-xs text-[var(--dim)]">带「新增」标记的为最近一次刷新加入的动态。</p>
       {refreshMsg && <p className="mt-2 text-sm text-[var(--accent)]">{refreshMsg}</p>}
 
       <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="动态分类筛选">
@@ -226,7 +375,10 @@ function FeedSection() {
 
       <div className="mt-4 space-y-3">
         {feed.data?.items.map((item) => (
-          <article key={item.id} className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4">
+          <article
+            key={item.id}
+            className={`rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4 ${item.freshness === "new" ? "feed-fresh" : ""}`}
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${categoryStyle(item.category)}`}>
@@ -251,7 +403,10 @@ function FeedSection() {
                 {item.bookmarked ? "★ 已收藏" : "☆ 收藏"}
               </button>
             </div>
-            <h3 className="mt-2 text-base font-bold leading-snug text-[var(--text)]">{item.title}</h3>
+            <h3 className="mt-2 flex flex-wrap items-center gap-2 text-base font-bold leading-snug text-[var(--text)]">
+              <span>{item.title}</span>
+              {item.freshness === "new" && <FreshTag kind="new" />}
+            </h3>
             <p className="mt-1.5 text-sm leading-relaxed text-[var(--dim)]">{item.summary}</p>
             <p className="mt-2 text-xs text-[var(--dim)]">
               来源：{item.sourceName} ·{" "}
@@ -682,6 +837,8 @@ type PinPlace = {
   lat: number;
   lng: number;
   polygon: [number, number][] | null;
+  addedOn: string | null;
+  updatedOn: string | null;
 };
 
 /* DOM content for the MapLibre popup anchored to a pin. Built with DOM APIs
@@ -702,6 +859,13 @@ function buildPopupEl(p: PinPlace, def: MapIconDef): HTMLDivElement {
   title.textContent = p.label;
   const chips = document.createElement("p");
   chips.className = "ml-popup-chips";
+  const freshKind = placeFreshKind(p);
+  if (freshKind) {
+    const tag = document.createElement("span");
+    tag.className = `fresh-tag fresh-tag--${freshKind === "new" ? "new" : "updated"}`;
+    tag.textContent = freshKind === "new" ? "新增" : "更新";
+    chips.append(tag);
+  }
   const chipTexts = [def.typeLabel, `● ${p.status}`, ...(p.distanceText ? [p.distanceText] : [])];
   for (const t of chipTexts) {
     const chip = document.createElement("span");
@@ -769,6 +933,8 @@ function MapSection({ places, projectPin }: { places: Place[]; projectPin: Proje
         lat: projectPin.lat,
         lng: projectPin.lng,
         polygon: projectPin.polygon,
+        addedOn: null,
+        updatedOn: null,
       },
     ];
     for (const p of places) {
@@ -784,6 +950,8 @@ function MapSection({ places, projectPin }: { places: Place[]; projectPin: Proje
         lat: p.lat,
         lng: p.lng,
         polygon: p.polygon,
+        addedOn: p.addedOn,
+        updatedOn: p.updatedOn,
       });
     }
     return list;
@@ -1036,7 +1204,7 @@ function MapSection({ places, projectPin }: { places: Place[]; projectPin: Proje
       </p>
       <p className="mt-2 text-sm text-[var(--dim)]">
         共 {places.length} 处配套 · 已运营 {counts.get("已运营") ?? 0} · 在建 {counts.get("在建") ?? 0} ·
-        规划中 {counts.get("规划中") ?? 0}；其中 {pins.length - 1} 处已上图（另含本项目图钉）。
+        规划中 {counts.get("规划中") ?? 0}；其中 {pins.length - 1} 处已上图（另含本项目图钉）。带「新增 / 更新」标记的为近两周内新纳入目录或内容有更正的配套。
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-2" aria-label="地图图例：图标与地点类型对照">
         {legendTypes.map((d) => (
@@ -1116,7 +1284,13 @@ function MapSection({ places, projectPin }: { places: Place[]; projectPin: Proje
               {selectedDef.glyph}
             </span>
             <div className="min-w-0 flex-1">
-              <h3 className="text-base font-bold leading-snug text-[var(--text)]">{selectedPin.label}</h3>
+              <h3 className="flex flex-wrap items-center gap-2 text-base font-bold leading-snug text-[var(--text)]">
+                <span>{selectedPin.label}</span>
+                {(() => {
+                  const k = placeFreshKind(selectedPin);
+                  return k ? <FreshTag kind={k} /> : null;
+                })()}
+              </h3>
               <p className="mt-0.5 flex flex-wrap items-center gap-1.5">
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${categoryStyle(selectedPin.category)}`}>
                   {selectedDef.typeLabel}
@@ -1164,6 +1338,10 @@ function MapSection({ places, projectPin }: { places: Place[]; projectPin: Proje
                   {def.glyph}
                 </span>
                 <h3 className="text-base font-bold text-[var(--text)]">{p.name}</h3>
+                {(() => {
+                  const k = placeFreshKind(p);
+                  return k ? <FreshTag kind={k} /> : null;
+                })()}
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusStyle(p.status)}`}>
                   ● {p.status}
                 </span>
@@ -1378,6 +1556,52 @@ function NotesSection() {
   );
 }
 
+function EvaluationSection({ evaluation }: { evaluation: Evaluation }) {
+  return (
+    <section aria-label="综合评价" className="mt-10">
+      <h2 className="font-display text-2xl font-bold text-[var(--text)]">综合评价</h2>
+      <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
+        <p className="flex items-baseline gap-1.5">
+          <span className="font-display text-5xl font-black tabular-nums leading-none text-[var(--brick)]">
+            {evaluation.overall.toFixed(1)}
+          </span>
+          <span className="text-sm text-[var(--dim)]">/ 10 · 综合评分</span>
+        </p>
+        <p className="min-w-0 flex-1 text-sm leading-relaxed text-[var(--dim)]">
+          交通与生态是硬通货，商业与自带配套还在兑现路上——现阶段更适合能陪片区一起成长的自住买家。
+        </p>
+      </div>
+      <ul className="mt-5 space-y-4">
+        {evaluation.items.map((it) => (
+          <li key={it.label}>
+            <div className="flex items-center gap-3">
+              <span className="w-[4.5rem] shrink-0 text-sm font-bold text-[var(--text)]">{it.label}</span>
+              <span
+                className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-[var(--surface-alt)]"
+                role="img"
+                aria-label={`${it.label}评分 ${it.score.toFixed(1)} 分（满分 10 分）`}
+              >
+                <span
+                  className="block h-full rounded-full bg-[var(--accent)]"
+                  style={{ width: `${Math.round(it.score * 10)}%` }}
+                />
+              </span>
+              <span className="w-8 shrink-0 text-right font-display text-base font-bold tabular-nums text-[var(--accent)]">
+                {it.score.toFixed(1)}
+              </span>
+            </div>
+            <p className="mt-1 pl-[5.25rem] text-sm leading-relaxed text-[var(--dim)]">{it.basis}</p>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-5 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4 text-sm leading-relaxed text-[var(--text)]">
+        {evaluation.verdict}
+      </p>
+      <p className="mt-2 text-xs leading-relaxed text-[var(--dim)]">{evaluation.note}</p>
+    </section>
+  );
+}
+
 export function App() {
   const overview = useQuery({ queryKey: ["overview"], queryFn: () => api.getOverview({}) });
 
@@ -1390,7 +1614,11 @@ export function App() {
         )}
         {overview.data && (
           <>
-            <PulseHeader project={overview.data.project} feedCount={overview.data.feedCount} />
+            <PulseHeader
+              project={overview.data.project}
+              feedCount={overview.data.feedCount}
+              weather={overview.data.weather}
+            />
             {overview.data.lastRefreshAt && (
               <p className="mt-3 text-xs tabular-nums text-[var(--dim)]">
                 最近一次刷新：{new Date(overview.data.lastRefreshAt).toLocaleString("zh-CN", { hour12: false })}
@@ -1404,6 +1632,7 @@ export function App() {
             <SitePhotosSection data={overview.data.sitePhotos} />
             <StaticExportSection />
             <NotesSection />
+            <EvaluationSection evaluation={overview.data.evaluation} />
             <footer className="mt-12 border-t border-[var(--border)] pt-4">
               <p className="text-xs leading-relaxed text-[var(--dim)]">
                 本页信息来自公开报道与政府公示，销售宣传口径与官方口径冲突时以官方为准；房价、划片、交付时间等请以售楼处与主管部门最新公示核实。本页每日自动检索更新，动态条目均附原文链接。

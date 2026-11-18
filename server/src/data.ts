@@ -63,12 +63,19 @@ export type Place = {
   status: string;
   description: string;
   sourceUrl: string;
+  /* Catalog maintenance dates (YYYY-MM-DD). addedOn = when this entry was
+     added to the catalog / put on the map; updatedOn = when its content was
+     materially corrected. The client shows a 新增/更新 tag while the date
+     is within 14 days. Only set from verified maintenance history — see
+     DATA-PLAN.md「新增/更新标记机制」. */
+  addedOn?: string;
+  updatedOn?: string;
 };
 
 export const PLACES: Place[] = [
   // 交通
   { name: "地铁 4 号线 · 工业四路站", category: "交通", distanceText: "约 177 米", distanceM: 177, status: "已运营", description: "B 口步行约 2 分钟。4 号线直达武昌火车站、中南路、楚河汉街，可换乘 2、3、7 号线通达三镇。", sourceUrl: SRC_MAIN },
-  { name: "地铁 4 号线 · 杨春湖站", category: "交通", distanceText: "约 1 公里", distanceM: 1000, status: "已运营", description: "位于杨春湖路与明德路交汇处，4 号线一站达武汉站方向。", sourceUrl: SRC_MAIN },
+  { name: "地铁 4 号线 · 杨春湖站", category: "交通", distanceText: "约 1 公里", distanceM: 1000, status: "已运营", description: "位于杨春湖路与明德路交汇处，4 号线一站达武汉站方向。", sourceUrl: SRC_MAIN, addedOn: "2026-11-17" },
   { name: "地铁 10 号线 / 新港线 · 北洋桥站", category: "交通", distanceText: "约 400 米", distanceM: 400, status: "在建", description: "新港线一期起点站，2023-12-22 开工。10 号线一期（汉口火车站—北洋桥）同步在建，设计时速 120 公里，通车后武汉站↔汉口站地铁约 25 分钟（现约 1 小时）。", sourceUrl: SRC_BENDIBAO },
   { name: "公交 · 团结大道地铁工业四路站", category: "交通", distanceText: "约 259 米", distanceM: 259, status: "已运营", description: "最近公交站，周边约 10 条线路；片区 1 公里内有多个站点、多条线路覆盖（宣传口径）。", sourceUrl: SRC_MAIN },
   { name: "武汉站（高铁）", category: "交通", distanceText: "约 1.5 公里", distanceM: 1500, status: "已运营", description: "经杨春湖路/团结大道可达；城际与高铁通达武汉城市圈及全国主要城市。", sourceUrl: SRC_MAIN },
@@ -76,26 +83,26 @@ export const PLACES: Place[] = [
   { name: "团结大道 / 欢乐大道 / 友谊大道", category: "交通", distanceText: "门口主干道", distanceM: 60, status: "已运营", description: "“三横两纵”路网骨架，团结大道双向 6 车道，可快速接驳二环线、三环线。临主干道楼栋需留意高峰车流噪音。", sourceUrl: SRC_DEEP },
   // 商业
   { name: "天荟自带社区商业", category: "商业", distanceText: "社区内 · 约 6,000 ㎡", distanceM: 30, status: "规划中", description: "规划引入生鲜超市、便民药房、特色餐饮等日常业态，覆盖买菜、早餐、洗衣、理发等高频需求；一期另有 4 层商业楼。", sourceUrl: SRC_DEEP },
-  { name: "山姆会员店（洪山店 · 武汉第 5 家）", category: "商业", distanceText: "片区内 · 团结大道南侧", distanceM: 900, status: "在建", description: "2026-09-29 随杨春湖高铁商务区科创产业园开工：门店约 7.5 万㎡，配套 1000 个专属车位，武汉首座按绿建三星标准建设的山姆；东侧地块为 14.8 万㎡科创产业园（总部办公、五星级酒店、人才公寓）。", sourceUrl: SRC_SAM },
-  { name: "武汉金诺奥特莱斯", category: "商业", distanceText: "和平街道 · 紧邻团结大道", distanceM: 9999, status: "在建", description: "2026-11-04 在洪山区和平街道正式开工，选址和平村 C3、C4 产业用地。定位“奥莱+购物公园”，业态包括名品零售、休闲体验、生活配套、潮流消费；总占地 130.12 亩，总投资约 10 亿元，规划总建筑面积约 17 万㎡，紧邻团结大道，地铁 4 号线、12 号线双轨环绕。建成后将成为杨春湖片区规模领先的商业综合体，与山姆会员店洪山店形成互补。开业/建成时间尚未公布，以官方后续公示为准。", sourceUrl: SRC_JINNUO },
+  { name: "山姆会员店（洪山店 · 武汉第 5 家）", category: "商业", distanceText: "片区内 · 团结大道南侧", distanceM: 900, status: "在建", description: "2026-09-29 随杨春湖高铁商务区科创产业园开工：门店约 7.5 万㎡，配套 1000 个专属车位，武汉首座按绿建三星标准建设的山姆；东侧地块为 14.8 万㎡科创产业园（总部办公、五星级酒店、人才公寓）。", sourceUrl: SRC_SAM, addedOn: "2026-11-17" },
+  { name: "武汉金诺奥特莱斯", category: "商业", distanceText: "和平街道 · 紧邻团结大道", distanceM: 9999, status: "在建", description: "2026-11-04 在洪山区和平街道正式开工，选址和平村 C3、C4 产业用地。定位“奥莱+购物公园”，业态包括名品零售、休闲体验、生活配套、潮流消费；总占地 130.12 亩，总投资约 10 亿元，规划总建筑面积约 17 万㎡，紧邻团结大道，地铁 4 号线、12 号线双轨环绕。建成后将成为杨春湖片区规模领先的商业综合体，与山姆会员店洪山店形成互补。开业/建成时间尚未公布，以官方后续公示为准。", sourceUrl: SRC_JINNUO, addedOn: "2026-11-17" },
   { name: "欢乐天际广场区", category: "商业", distanceText: "紧邻东侧", distanceM: 350, status: "在建", description: "华侨城欢乐天际中央区组成部分，规划写字楼、公寓、购物中心（奥特莱斯方向）与开放式餐饮街区，正在逐步落地。", sourceUrl: SRC_DEEP },
   { name: "金地广场", category: "商业", distanceText: "约 2.6 公里", distanceM: 2600, status: "已运营", description: "地铁 4 号线一站可达，购物、餐饮、影院、亲子业态齐全，是目前片区最成熟的日常大商业。", sourceUrl: SRC_MAIN },
   { name: "东方里 / 原溪商业街", category: "商业", distanceText: "近距离 · 街区商业", distanceM: 1200, status: "已运营", description: "周边社区街区商业，补充餐饮与生活服务。", sourceUrl: SRC_DEEP },
   { name: "武汉印象城", category: "商业", distanceText: "约 4.9 公里", distanceM: 4900, status: "已运营", description: "青山方向大型购物中心，驱车或公交可达。", sourceUrl: SRC_MAIN },
   { name: "武商城市奥莱", category: "商业", distanceText: "约 5 公里", distanceM: 5000, status: "已运营", description: "奥特莱斯业态，品牌折扣购物。", sourceUrl: SRC_MAIN },
   // 教育
-  { name: "武汉小学洪山华侨城分校", category: "教育", distanceText: "约 493 米", distanceM: 493, status: "已运营", description: "2023 年秋季开学，纳入武汉小学教育管理集团体系。2025 年洪山区划片中，华侨城欢乐天际对口该校；天荟交付后划片以当年官方公示为准。", sourceUrl: SRC_MAIN },
+  { name: "武汉小学洪山华侨城分校", category: "教育", distanceText: "约 493 米", distanceM: 493, status: "已运营", description: "2023 年秋季开学，纳入武汉小学教育管理集团体系。2025 年洪山区划片中，华侨城欢乐天际对口该校；天荟交付后划片以当年官方公示为准。", sourceUrl: SRC_MAIN, addedOn: "2026-11-17" },
   { name: "街道口小学教育集团北洋桥分校", category: "教育", distanceText: "约 988 米", distanceM: 988, status: "已运营", description: "项目周边小学之一（直线距离）。", sourceUrl: SRC_MAIN },
   { name: "街道口小学（东方雅园分校）", category: "教育", distanceText: "约 994 米", distanceM: 994, status: "已运营", description: "项目周边小学之一（直线距离）。", sourceUrl: SRC_MAIN },
-  { name: "七一华源中学（东湖分校）", category: "教育", distanceText: "1 公里以外", distanceM: 1300, status: "规划中", description: "片区规划中学，宣传口径预计 2027 年开学；以教育主管部门正式公示为准。", sourceUrl: SRC_DEEP },
+  { name: "七一华源中学（东湖分校）", category: "教育", distanceText: "1 公里以外", distanceM: 1300, status: "规划中", description: "片区规划中学，宣传口径预计 2027 年开学；以教育主管部门正式公示为准。", sourceUrl: SRC_DEEP, addedOn: "2026-11-17" },
   { name: "武汉市钢城第十二中学", category: "教育", distanceText: "约 1.7 公里", distanceM: 1700, status: "已运营", description: "周边中学（直线距离）。", sourceUrl: SRC_MAIN },
   { name: "武汉市钢城第十六中学", category: "教育", distanceText: "约 1.8 公里", distanceM: 1800, status: "已运营", description: "周边中学（直线距离）。", sourceUrl: SRC_MAIN },
   { name: "武汉杨春湖实验学校", category: "教育", distanceText: "约 2.7 公里", distanceM: 2700, status: "已运营", description: "片区九年一贯制学校（直线距离）。", sourceUrl: SRC_MAIN },
   { name: "天荟二期幼儿园", category: "教育", distanceText: "社区内（二期地块）", distanceM: 100, status: "规划中", description: "二期 01、02 地块规划 1 栋幼儿园，随二期建设。", sourceUrl: SRC_MAIN },
   // 医疗
-  { name: "武汉市中心医院杨春湖院区", category: "医疗", distanceText: "约 1.2 公里", distanceM: 1200, status: "已运营", description: "三级甲等综合医院新院区（洪山区礼和路 188 号），已投入运营，是片区最重要的医疗资源；距本项目直线约 1.2 公里（图钉实测约 1.15 公里）。部分售楼宣传口径称约 2.1 公里，与图钉实测不符，应为行车/配套测距口径，此处以实测直线距离为准。", sourceUrl: SRC_MAIN },
+  { name: "武汉市中心医院杨春湖院区", category: "医疗", distanceText: "约 1.2 公里", distanceM: 1200, status: "已运营", description: "三级甲等综合医院新院区（洪山区礼和路 188 号），已投入运营，是片区最重要的医疗资源；距本项目直线约 1.2 公里（图钉实测约 1.15 公里）。部分售楼宣传口径称约 2.1 公里，与图钉实测不符，应为行车/配套测距口径，此处以实测直线距离为准。", sourceUrl: SRC_MAIN, updatedOn: "2026-11-17" },
   { name: "华润武钢总医院", category: "医疗", distanceText: "约 3.9 公里", distanceM: 3900, status: "已运营", description: "青山方向综合医院（直线距离）。", sourceUrl: SRC_MAIN },
-  { name: "武汉大学人民医院（省人民医院）青山院区", category: "医疗", distanceText: "约 4.5 公里", distanceM: 4500, status: "已运营", description: "三甲医院院区（直线距离）。", sourceUrl: SRC_MAIN },
+  { name: "武汉大学人民医院（省人民医院）青山院区", category: "医疗", distanceText: "约 4.5 公里", distanceM: 4500, status: "已运营", description: "三甲医院院区（直线距离）。", sourceUrl: SRC_MAIN, addedOn: "2026-11-17" },
   { name: "武汉市第九医院", category: "医疗", distanceText: "约 4.8 公里", distanceM: 4800, status: "已运营", description: "青山方向综合医院（直线距离）。", sourceUrl: SRC_MAIN },
   // 生态文旅
   { name: "两港公园", category: "生态文旅", distanceText: "约 500 米", distanceM: 500, status: "已运营", description: "沿港渠景观公园，日常散步、亲子活动空间。", sourceUrl: SRC_DEEP },
@@ -599,6 +606,86 @@ export const SITE_PHOTOS = {
     { key: "sample", caption: "样板展示区：交付、工艺、实测实量、材料四类样板", alt: "华侨城天荟工地样板展示区拼图，包含交付样板、工艺样板、实测实量样板和材料样板" },
   ],
 };
+
+/* ------------------------------------------------------------------ */
+/* 综合评价 (scored 2026-11-18 from this page's verified data — see     */
+/* DATA-PLAN.md「综合评价」). Subjective synthesis, labeled as such in  */
+/* the UI; re-check the scores whenever the underlying data changes    */
+/* materially (new price snapshot, a 在建 place opening, delivery…).   */
+/* ------------------------------------------------------------------ */
+
+export const EVALUATION = {
+  asOf: "2026-11-18",
+  overall: 7.8,
+  items: [
+    {
+      label: "交通出行",
+      score: 9.0,
+      basis:
+        "地铁 4 号线工业四路站仅约 177 米，武汉站约 1.5 公里，10 号线/新港线北洋桥站在建，通车后进一步加密。",
+    },
+    {
+      label: "生态环境",
+      score: 8.5,
+      basis:
+        "东湖约 700 米，杨春湖公园、两港公园与严西湖水系环绕，是片区最稀缺的资源。",
+    },
+    {
+      label: "教育医疗",
+      score: 7.5,
+      basis:
+        "武汉小学华侨城分校约 493 米、七一华源中学东湖分校在侧，市中心医院杨春湖院区约 1.2 公里、三甲资源可达；但划片以当年公示为准，确定性待观察。",
+    },
+    {
+      label: "价格与潜力",
+      score: 7.5,
+      basis:
+        "参考均价约 12,500 元/㎡，在杨春湖高铁商务区内属相对低位；片区规划能级高，但兑现周期长，短期以自住逻辑为主。",
+    },
+    {
+      label: "商业配套",
+      score: 7.0,
+      basis:
+        "存量商业可满足日常，但自带商业尚未兑现；山姆洪山店、金诺奥特莱斯均在建，兑现后这一项会明显上调。",
+    },
+    {
+      label: "居住品质",
+      score: 7.0,
+      basis:
+        "准四代住宅、得房率约 97% 以上、品牌物业是加分项；容积率 4.48 偏高、毛坯交付、周边工地多，当下舒适度打折。",
+    },
+  ],
+  verdict:
+    "天荟的底子是「地铁口 + 东湖边 + 高铁商务区」，交通和生态是硬通货，价格在片区内不算贵。它现在的主要问题不是不好，而是「还没长好」——商业、学校、自带配套大多在兑现路上，一期 2027 年 6 月才交付。适合看重通勤与环境、能陪片区一起成长的自住买家；想要现成成熟生活、马上入住的，它不是最优解。",
+  note: "评分基于本页已收录的公开数据（截至 2026-11-18），为主观综合判断，不构成购房建议；数据变化后评分会相应调整。",
+};
+
+/* WMO weather-code → Chinese label + icon (Open-Meteo current weather).
+   Shared wording for the live header, the static snapshot, and the
+   client-side fallback fetch. */
+export function weatherText(code: number): { label: string; icon: string } {
+  if (code === 0) return { label: "晴", icon: "☀️" };
+  if (code === 1) return { label: "晴间多云", icon: "🌤️" };
+  if (code === 2) return { label: "多云", icon: "⛅" };
+  if (code === 3) return { label: "阴", icon: "☁️" };
+  if (code === 45 || code === 48) return { label: "雾", icon: "🌫️" };
+  if (code === 51 || code === 53 || code === 55) return { label: "毛毛雨", icon: "🌦️" };
+  if (code === 56 || code === 57) return { label: "冻毛毛雨", icon: "🌦️" };
+  if (code === 61) return { label: "小雨", icon: "🌧️" };
+  if (code === 63) return { label: "中雨", icon: "🌧️" };
+  if (code === 65) return { label: "大雨", icon: "🌧️" };
+  if (code === 66 || code === 67) return { label: "冻雨", icon: "🌧️" };
+  if (code === 71) return { label: "小雪", icon: "🌨️" };
+  if (code === 73) return { label: "中雪", icon: "🌨️" };
+  if (code === 75) return { label: "大雪", icon: "🌨️" };
+  if (code === 77) return { label: "雪粒", icon: "🌨️" };
+  if (code === 80 || code === 81) return { label: "阵雨", icon: "🌦️" };
+  if (code === 82) return { label: "暴雨", icon: "🌧️" };
+  if (code === 85 || code === 86) return { label: "阵雪", icon: "🌨️" };
+  if (code === 95) return { label: "雷阵雨", icon: "⛈️" };
+  if (code === 96 || code === 99) return { label: "雷阵雨伴冰雹", icon: "⛈️" };
+  return { label: "天气未知", icon: "🌡️" };
+}
 
 export const SEED_FEED = [
   {

@@ -124,6 +124,24 @@
 - 本地等价脚本 `scripts/generate-static-site.ts`（bun 运行，直读 app.db + data.ts），本次已实际生成一份：static-site/ 共 3 个文本文件、约 3.8MB（index.html 约 3.9MB，四张图 base64 内嵌：航拍 PNG 为主要体积），远低于 10MB 上限。
 - 注：当前页面已无「武汉侨城会」公众号追踪板块（2026-11-17 用户决定不集成），静态快照与 live 页面板块保持一致，不含该板块；若日后恢复该板块，模板需同步加一节。
 
+### 新增/更新标记机制（2026-11-18 edit: 标签/水印）
+**Used by**: 最新动态 feed 卡片 + 周边配套清单/地图弹窗 + 静态站同名渲染（.fresh-tag 样式，theme.css 与 static_template CSS 各一份，保持一致）
+**规则（标记必须对应真实的新增/变化，禁止编造日期）**:
+- **动态（feed）**：服务端 listFeed 计算 freshness——条目 fetchedAt 与全库最新 fetchedAt 属同一北京时间自然日、且最新 fetchedAt 距当前 ≤48 小时 → freshness="new"，否则 null。客户端标题旁渲染「新增」小 pill，卡片加左侧主题色细边 + 极浅主题色底（.feed-fresh）。窗口过后自动消失，无需人工清理。exportStaticSite 与 scripts/generate-static-site.ts 用同一规则把 freshness 写进快照 JSON，静态模板据此渲染。
+- **配套（places）**：`server/src/data.ts` 的 Place 类型有可选字段 addedOn / updatedOn（YYYY-MM-DD，目录维护日期）。客户端以「今天」判断、静态站以快照日期判断：距今 ≤14 天渲染「新增」（addedOn）/「更新」（updatedOn）标签，addedOn 优先；出现在配套清单条目、地图弹窗与静态备用卡片中。地图图钉本身样式不变。
+- **种子日期出处（均为 2026-11-17 当日已核实的目录变更，见本文件当日各节记录）**：武汉金诺奥特莱斯 addedOn 2026-11-17（当日纳入跟踪）；山姆会员店、武汉小学洪山华侨城分校、七一华源中学东湖分校、省人民医院青山院区 addedOn 2026-11-17（当日近似定位补上图）；地铁 4 号线 · 杨春湖站 addedOn 2026-11-17（当日补齐目录条目）；武汉市中心医院杨春湖院区 updatedOn 2026-11-17（当日距离口径由约 2.1 公里更正为约 1.2 公里）。其余条目不填日期字段。
+- **维护规则**：日后新增配套条目时填 addedOn 为实际新增日期；修改条目内容（距离/状态/说明更正）时把 updatedOn 更新为修改日期；不要给没有真实变更的条目补日期。标签 14 天后自动消失，字段本身保留作维护记录。
+
+### 页头天气（2026-11-18 edit）
+**Used by**: 页头标题区右侧天气块（live PulseHeader + 静态站页头同位置）
+**Source**: Open-Meteo 免费接口（无需 key）`https://api.open-meteo.com/v1/forecast?latitude=30.6092&longitude=114.4015&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=Asia/Shanghai&forecast_days=1`，坐标为项目图钉（30.6092, 114.4015）。构建时实测可取到数据（2026-11-18 10:30 返回多云 13.4°C 等）。
+**Processing**: WMO weather_code → 中文状况 + 图标映射在 `server/src/data.ts` 的 weatherText（客户端兜底 fetch 有同名映射副本）。服务端 getOverview 内 fetch、模块级缓存约 20 分钟（失败缓存 5 分钟），超时 6 秒；失败返回 null、前端整块隐藏，绝不阻塞页面。服务端为 null 时客户端浏览器直连 Open-Meteo 兜底（该接口支持 CORS）。静态站显示快照时刻天气并注明「快照时刻数据」，生成时取不到则整块省略。展示口径：当前温度 + 状况、今日最低~最高温、相对湿度、风速（km/h）。
+
+### 综合评价（2026-11-18 edit）
+**Used by**: 页面最后「综合评价」板块（Notes 之后、页脚之前）+ 静态站同名板块
+**Content**: 常量 EVALUATION 在 `server/src/data.ts`，live 与静态共用。综合评分 7.8/10；分项：交通出行 9.0、生态环境 8.5、教育医疗 7.5、价格与潜力 7.5、商业配套 7.0、居住品质 7.0，每项一句依据，依据全部出自本页已核实数据（177 米地铁站、700 米东湖、493 米小学、1.2 公里市中心医院院区、12,500 元/㎡平台参考均价、容积率 4.48、得房率约 97%+、山姆/金诺奥特莱斯在建、2027-06-30 一期交付）。评分日期 2026-11-18，板块注明为主观综合判断、不构成购房建议。
+**维护规则**: 数据重大变化时同步复核评分并更新 asOf 与 DATA-PLAN 本节：在建配套开业（山姆、金诺奥特莱斯、自带商业）→ 商业配套上调；10 号线通车 → 交通已满分附近微调说明；新一轮价格快照明显变化 → 价格与潜力复核；一期交付 → 居住品质复核。不要在无数据变化时随意改分。
+
 ## Long-term data behavior
 - **Refresh policy**: Daily cron (per refresh_triggers) calls refreshFeed silently; manual 刷新 button also available. Static archive/places change only when refresh finds a verified status change; feed is append/dedupe by URL.
 - **Growth**: Feed grows ~5-15 items per refresh, capped display at latest 100 with category filter; places fixed catalog (~28 rows) updated in place; user notes/bookmarks grow with user use only.

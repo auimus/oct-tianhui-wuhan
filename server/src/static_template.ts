@@ -16,6 +16,8 @@ export interface StaticPlace {
   lng: number | null;
   polygon: [number, number][] | null;
   pinNote: string | null;
+  addedOn: string | null;
+  updatedOn: string | null;
 }
 
 export interface StaticFeedItem {
@@ -28,6 +30,7 @@ export interface StaticFeedItem {
   publishedDate: string | null;
   fetchedAt: string;
   bookmarked: boolean;
+  freshness: "new" | null;
 }
 
 export interface StaticProject {
@@ -118,6 +121,26 @@ export interface StaticSitePhotos {
   photos: { key: string; caption: string; alt: string }[];
 }
 
+export interface StaticWeather {
+  tempC: number;
+  code: number;
+  label: string;
+  icon: string;
+  highC: number;
+  lowC: number;
+  humidity: number;
+  windKmh: number;
+  observedAt: string;
+}
+
+export interface StaticEvaluation {
+  asOf: string;
+  overall: number;
+  items: { label: string; score: number; basis: string }[];
+  verdict: string;
+  note: string;
+}
+
 export interface StaticSiteData {
   snapshotAt: string;
   snapshotText: string;
@@ -131,6 +154,8 @@ export interface StaticSiteData {
   feedCount: number;
   bookmarkCount: number;
   lastRefreshAt: string | null;
+  weather: StaticWeather | null;
+  evaluation: StaticEvaluation;
 }
 
 /** Image data URIs keyed by asset name; null when the file was missing. */
@@ -265,6 +290,8 @@ type Pin = {
   lng: number;
   polygon: [number, number][] | null;
   sourceUrl: string | null;
+  addedOn: string | null;
+  updatedOn: string | null;
 };
 
 function collectPins(data: StaticSiteData): Pin[] {
@@ -281,6 +308,8 @@ function collectPins(data: StaticSiteData): Pin[] {
       lng: data.projectPin.lng,
       polygon: data.projectPin.polygon,
       sourceUrl: null,
+      addedOn: null,
+      updatedOn: null,
     },
   ];
   for (const p of data.places) {
@@ -297,6 +326,8 @@ function collectPins(data: StaticSiteData): Pin[] {
       lng: p.lng,
       polygon: p.polygon,
       sourceUrl: p.sourceUrl,
+      addedOn: p.addedOn,
+      updatedOn: p.updatedOn,
     });
   }
   return pins;
@@ -404,11 +435,53 @@ footer{margin-top:44px;border-top:1px solid var(--border);padding-top:14px;font-
 details{margin-top:8px}
 summary{cursor:pointer;color:var(--accent);font-size:14px}
 .hidden{display:none!important}
+.fresh-tag{display:inline-flex;align-items:center;padding:0 7px;height:19px;border-radius:999px;font-size:11px;line-height:1;font-weight:700;letter-spacing:.04em;white-space:nowrap;vertical-align:middle}
+.fresh-tag--new{background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent)}
+.fresh-tag--updated{background:#e9edf1;color:#52657a;border:1px solid #94a7ba}
+@media (prefers-color-scheme:dark){.fresh-tag--updated{background:#2e3742;color:#a9bfd4;border-color:#5b7189}}
+.card-fresh{border-left:3px solid var(--accent);background:color-mix(in srgb,var(--accent-soft) 38%,var(--surface))}
+.head-flex{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:6px 20px}
+.weather{text-align:right;flex-shrink:0;padding-top:20px}
+@media(max-width:640px){.weather{text-align:left;padding-top:0}}
+.weather .wmain{font-size:20px;font-weight:800;line-height:1.3}
+.weather .wmain .wt{color:var(--accent)}
+.score-big{font-size:48px;font-weight:900;color:var(--brick);line-height:1;font-variant-numeric:tabular-nums}
+.bar{height:8px;background:var(--surface-alt);border-radius:999px;overflow:hidden;flex:1;min-width:60px}
+.bar>i{display:block;height:100%;background:var(--accent);border-radius:999px}
+.eval-row{display:flex;align-items:center;gap:12px;margin-top:14px}
+.eval-row .lab{width:72px;flex-shrink:0;font-weight:700;font-size:14px}
+.eval-row .sc{width:32px;flex-shrink:0;text-align:right;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums}
+.eval-basis{margin:3px 0 0 84px;font-size:14px;color:var(--dim)}
 `;
 
 function chipForStatus(status: string): string {
   const k = statusKey(status);
   return `<span class="chip chip-${k}">● ${esc(status)}</span>`;
+}
+
+/* Place freshness vs the snapshot date as "today": 新增 when addedOn is
+   within 14 days, 更新 when updatedOn is (addedOn wins). Mirrors the live
+   client's placeFreshKind in App.tsx. */
+function placeFreshKind(
+  pl: { addedOn: string | null; updatedOn: string | null },
+  today: Date,
+): "new" | "updated" | null {
+  const within = (dateText: string | null): boolean => {
+    if (!dateText) return false;
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateText);
+    if (!m) return false;
+    const target = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    const d = Math.round((today.getTime() - target.getTime()) / 86400000);
+    return d >= 0 && d <= 14;
+  };
+  if (within(pl.addedOn)) return "new";
+  if (within(pl.updatedOn)) return "updated";
+  return null;
+}
+
+function freshTagHtml(kind: "new" | "updated" | null): string {
+  if (!kind) return "";
+  return `<span class="fresh-tag fresh-tag--${kind === "new" ? "new" : "updated"}">${kind === "new" ? "新增" : "更新"}</span>`;
 }
 
 export function buildStaticSiteHtml(data: StaticSiteData, images: StaticImages): string {
@@ -424,9 +497,9 @@ export function buildStaticSiteHtml(data: StaticSiteData, images: StaticImages):
   const feedCats = ["全部", ...Array.from(new Set(data.feedItems.map((i) => i.category)))];
   const feedHtml = data.feedItems
     .map(
-      (it) => `<article class="card" data-feed-cat="${esc(it.category)}">
+      (it) => `<article class="card${it.freshness === "new" ? " card-fresh" : ""}" data-feed-cat="${esc(it.category)}">
 <div><span class="chip chip-cat">${esc(it.category)}</span><span class="dim small">${esc(it.publishedDate ?? "日期见原文")}</span>${it.bookmarked ? '<span class="chip">★ 已收藏</span>' : ""}</div>
-<h3 style="margin-top:6px">${esc(it.title)}</h3>
+<h3 style="margin-top:6px">${esc(it.title)}${it.freshness === "new" ? ` ${freshTagHtml("new")}` : ""}</h3>
 <p class="dim" style="font-size:14px">${esc(it.summary)}</p>
 <p class="small dim">来源：${esc(it.sourceName)} · <a href="${esc(it.sourceUrl)}" target="_blank" rel="noreferrer">查看原文</a></p>
 </article>`,
@@ -529,7 +602,7 @@ ${trendRows ? `<table><thead><tr><th>阶段</th><th>时间</th><th>口径</th><t
       return `<article class="card" data-place-cat="${esc(pl.category)}" ${idx >= 0 ? `data-place-idx="${idx}"` : ""}>
 <div class="place-row"><span class="badge badge-${statusKey(pl.status)}" aria-hidden="true">${def.glyph}</span>
 <div style="min-width:0;flex:1">
-<div><strong>${esc(pl.name)}</strong> ${chipForStatus(pl.status)}<span class="chip">${esc(def.typeLabel)}</span><span class="chip">${esc(pl.distanceText)}</span></div>
+<div><strong>${esc(pl.name)}</strong> ${freshTagHtml(placeFreshKind(pl, today))} ${chipForStatus(pl.status)}<span class="chip">${esc(def.typeLabel)}</span><span class="chip">${esc(pl.distanceText)}</span></div>
 <p class="dim" style="font-size:14px">${esc(pl.description)}</p>
 <p class="small dim">${pinned ? `坐标：${pl.lat}, ${pl.lng}${pl.polygon ? ` · 含实测范围轮廓（${pl.polygon.length} 点）` : ""}` : "坐标待核实 · 暂未上图"} · <a href="${esc(pl.sourceUrl)}" target="_blank" rel="noreferrer">来源</a> · <a href="${esc(dir)}" target="_blank" rel="noopener">导航</a></p>
 ${pl.pinNote ? `<p class="small dim">图钉说明：${esc(pl.pinNote)}</p>` : ""}
@@ -594,6 +667,21 @@ ${pl.pinNote ? `<p class="small dim">图钉说明：${esc(pl.pinNote)}</p>` : ""
     })
     .join("\n");
 
+  const ev = data.evaluation;
+  const evalRows = ev.items
+    .map(
+      (it) => `<div class="eval-row"><span class="lab">${esc(it.label)}</span><span class="bar" role="img" aria-label="${esc(it.label)}评分 ${it.score.toFixed(1)} 分（满分 10 分）"><i style="width:${Math.round(it.score * 10)}%"></i></span><span class="sc">${it.score.toFixed(1)}</span></div>
+<p class="eval-basis">${esc(it.basis)}</p>`,
+    )
+    .join("\n");
+  const evalHtml = `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 24px;margin-top:10px">
+<p style="margin:0"><span class="score-big">${ev.overall.toFixed(1)}</span> <span class="dim small">/ 10 · 综合评分</span></p>
+<p class="dim" style="font-size:14px;margin:0;flex:1;min-width:220px">交通与生态是硬通货，商业与自带配套还在兑现路上——现阶段更适合能陪片区一起成长的自住买家。</p>
+</div>
+${evalRows}
+<div class="card"><p style="margin:0;font-size:14px">${esc(ev.verdict)}</p></div>
+<p class="small dim">${esc(ev.note)}</p>`;
+
   const pinDataJson = JSON.stringify(
     pins.map((pin) => ({
       label: pin.label,
@@ -606,6 +694,7 @@ ${pl.pinNote ? `<p class="small dim">图钉说明：${esc(pl.pinNote)}</p>` : ""
       lng: pin.lng,
       typeLabel: iconFor(pin.category, pin.label).typeLabel,
       glyph: iconFor(pin.category, pin.label).glyph,
+      freshKind: placeFreshKind(pin, today),
     })),
   ).replace(/</g, "\\u003c");
   const snapshotJson = JSON.stringify(data).replace(/</g, "\\u003c");
@@ -626,9 +715,18 @@ ${pl.pinNote ? `<p class="small dim">图钉说明：${esc(pl.pinNote)}</p>` : ""
 </div>
 
 <header>
+<div class="head-flex">
+<div style="min-width:0">
 <p class="kicker">武汉 · 洪山 · 杨春湖高铁商务区（东湖新城）</p>
 <h1>华侨城·天荟</h1>
 <p class="dim">${esc(p.address)} · ${esc(p.developer)}</p>
+</div>
+${data.weather ? `<div class="weather" aria-label="项目所在地天气（快照时刻）">
+<p class="wmain" style="margin:0"><span aria-hidden="true">${esc(data.weather.icon)}</span> ${esc(data.weather.label)} <span class="wt">${Math.round(data.weather.tempC)}°C</span></p>
+<p class="small dim" style="margin:2px 0 0">今日 ${Math.round(data.weather.lowC)}~${Math.round(data.weather.highC)}°C · 湿度 ${Math.round(data.weather.humidity)}% · 风 ${Math.round(data.weather.windKmh)} km/h</p>
+<p class="small dim" style="margin:0">项目所在地天气 · Open-Meteo（快照时刻数据）</p>
+</div>` : ""}
+</div>
 <p style="margin-top:10px"><span class="countdown">${days > 0 ? days : "—"}</span> 天后 · 一期预计交付（2027-06-30）</p>
 <p class="dim">已收录动态 <strong style="color:var(--text)">${data.feedCount}</strong> 条${data.lastRefreshAt ? ` · 最近一次刷新：${esc(data.lastRefreshAt)}` : ""}</p>
 <div class="grid4">
@@ -639,13 +737,13 @@ ${pl.pinNote ? `<p class="small dim">图钉说明：${esc(pl.pinNote)}</p>` : ""
 </div>
 <p class="small dim">距离均为公开资料直线距离参考，实际通行以路况与官方测量为准。</p>
 <nav class="toc" aria-label="本页目录">
-<a href="#feed">最新动态</a><a href="#prices">房价走势</a><a href="#map">周边地图 · 配套全图</a><a href="#timeline">时间线</a><a href="#archive">项目档案</a><a href="#photos">实地施工图</a>
+<a href="#feed">最新动态</a><a href="#prices">房价走势</a><a href="#map">周边地图 · 配套全图</a><a href="#timeline">时间线</a><a href="#archive">项目档案</a><a href="#photos">实地施工图</a><a href="#review">综合评价</a>
 </nav>
 </header>
 
 <section id="feed" aria-label="最新动态">
 <h2>最新动态</h2>
-<p class="dim small">快照共 ${data.feedItems.length} 条（按发布日期倒序）。点分类可筛选；收藏标记为快照时刻的状态。</p>
+<p class="dim small">快照共 ${data.feedItems.length} 条（按发布日期倒序）。点分类可筛选；收藏标记为快照时刻的状态。带「新增」标记的为最近一次刷新加入的动态。</p>
 <div class="filters" role="group" aria-label="动态分类筛选">
 ${feedCats.map((c, i) => `<button type="button" data-feed-filter="${esc(c)}" aria-pressed="${i === 0 ? "true" : "false"}">${esc(c)}</button>`).join("")}
 </div>
@@ -697,7 +795,7 @@ ${ychChart}
 <section id="map" aria-label="周边地图与配套">
 <h2>周边地图 · 配套全图</h2>
 <p class="dim" style="font-size:14px">图标区分类型，颜色区分状态（绿＝已运营、橙＝在建、灰＝规划中）。静态站不加载在线地图瓦片：下方先是含全部图钉的静态地图图，再是一张按真实经纬度投影的图钉分布图——点击图钉或下方条目可查看该地点详情；有实测范围的点位在分布图里以虚线画出轮廓。少数配套为按公开地址推定的近似定位，详情里的图钉说明有标注。距离为直线距离参考。</p>
-<p class="dim small">共 ${data.places.length} 处配套 · 已运营 ${counts.get("已运营") ?? 0} · 在建 ${counts.get("在建") ?? 0} · 规划中 ${counts.get("规划中") ?? 0}；其中 ${pins.length - 1} 处已上图（另含本项目图钉）。</p>
+<p class="dim small">共 ${data.places.length} 处配套 · 已运营 ${counts.get("已运营") ?? 0} · 在建 ${counts.get("在建") ?? 0} · 规划中 ${counts.get("规划中") ?? 0}；其中 ${pins.length - 1} 处已上图（另含本项目图钉）。带「新增 / 更新」标记的为快照日期前两周内新纳入目录或内容有更正的配套。</p>
 <p>${legendHtml}</p>
 <p><span class="chip chip-open">● 已运营</span><span class="chip chip-building">● 在建</span><span class="chip chip-planned">● 规划中</span></p>
 ${images.mapStatic ? `<figure><img src="${images.mapStatic}" alt="华侨城天荟周边静态地图：图钉标出本项目与周边配套（车站、学校、商场、医院、公园等）的位置" loading="lazy"/><figcaption>静态地图图（© OpenStreetMap contributors）。</figcaption></figure>` : ""}
@@ -729,6 +827,11 @@ ${timelineHtml}
 ${photosHtml}
 <p class="dim" style="font-size:14px">${esc(data.sitePhotos.progressNote)}</p>
 <p class="small dim">原图来源：<a href="${esc(data.sitePhotos.sourceUrl)}" target="_blank" rel="noreferrer">${esc(data.sitePhotos.sourceName)}报道</a>。</p>
+</section>
+
+<section id="review" aria-label="综合评价">
+<h2>综合评价</h2>
+${evalHtml}
 </section>
 
 <footer>
@@ -781,7 +884,8 @@ function selectPin(idx) {
   var g = document.querySelector('[data-pin-idx="' + idx + '"]');
   if (g) g.classList.add("selected");
   var chips = "<span class='chip chip-cat'>" + d.typeLabel + "</span><span class='chip'>● " + d.status + "</span>" + (d.distanceText ? "<span class='chip'>" + d.distanceText + "</span>" : "");
-  detail.innerHTML = "<div><span aria-hidden='true'>" + d.glyph + "</span> <strong>" + d.label + "</strong></div><p style='margin:4px 0'>" + chips + "</p><p class='dim' style='font-size:14px'>" + d.note + "</p>" + (d.pinNote ? "<p class='small dim'>图钉说明：" + d.pinNote + "</p>" : "") + "<p class='small dim'>坐标：" + d.lat + ", " + d.lng + " · <a target='_blank' rel='noopener' href='https://www.google.com/maps/dir/?api=1&destination=" + d.lat + "," + d.lng + "'>导航到这里 →</a></p>";
+  var fresh = d.freshKind ? "<span class='fresh-tag fresh-tag--" + (d.freshKind === "new" ? "new" : "updated") + "'>" + (d.freshKind === "new" ? "新增" : "更新") + "</span> " : "";
+  detail.innerHTML = "<div><span aria-hidden='true'>" + d.glyph + "</span> <strong>" + d.label + "</strong> " + fresh + "</div><p style='margin:4px 0'>" + chips + "</p><p class='dim' style='font-size:14px'>" + d.note + "</p>" + (d.pinNote ? "<p class='small dim'>图钉说明：" + d.pinNote + "</p>" : "") + "<p class='small dim'>坐标：" + d.lat + ", " + d.lng + " · <a target='_blank' rel='noopener' href='https://www.google.com/maps/dir/?api=1&destination=" + d.lat + "," + d.lng + "'>导航到这里 →</a></p>";
 }
 document.querySelectorAll("[data-pin-idx]").forEach(function (el) {
   var idx = Number(el.getAttribute("data-pin-idx"));

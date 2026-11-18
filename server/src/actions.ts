@@ -10,6 +10,7 @@ import * as schema from "./schema";
 /* ------------------------------------------------------------------ */
 
 import {
+  EVALUATION,
   MILESTONES,
   PLACE_GEO,
   PLACES,
@@ -18,7 +19,89 @@ import {
   PROJECT_PIN,
   SEED_FEED,
   SITE_PHOTOS,
+  weatherText,
 } from "./data";
+
+/* ------------------------------------------------------------------ */
+/* Weather (Open-Meteo, no key) for the project pin location. Fetched  */
+/* server-side with a ~20-minute module-level cache; any failure       */
+/* returns null and the header block simply hides — it must never      */
+/* break or block the page. The client also falls back to a direct     */
+/* browser fetch when this comes back null.                            */
+/* ------------------------------------------------------------------ */
+
+const weatherShape = z.object({
+  tempC: z.number(),
+  code: z.number(),
+  label: z.string(),
+  icon: z.string(),
+  highC: z.number(),
+  lowC: z.number(),
+  humidity: z.number(),
+  windKmh: z.number(),
+  observedAt: z.string(),
+});
+
+type WeatherData = z.infer<typeof weatherShape>;
+
+let weatherCache: { at: number; data: WeatherData | null } | null = null;
+const WEATHER_TTL_MS = 20 * 60 * 1000;
+const WEATHER_FAIL_TTL_MS = 5 * 60 * 1000;
+
+async function fetchWeather(): Promise<WeatherData | null> {
+  const nowMs = Date.now();
+  if (weatherCache) {
+    const ttl = weatherCache.data ? WEATHER_TTL_MS : WEATHER_FAIL_TTL_MS;
+    if (nowMs - weatherCache.at < ttl) return weatherCache.data;
+  }
+  let data: WeatherData | null = null;
+  try {
+    const url =
+      "https://api.open-meteo.com/v1/forecast?latitude=30.6092&longitude=114.4015" +
+      "&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m" +
+      "&daily=temperature_2m_max,temperature_2m_min&timezone=Asia%2FShanghai&forecast_days=1";
+    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    if (res.ok) {
+      const j = (await res.json()) as {
+        current?: {
+          time?: string;
+          temperature_2m?: number;
+          relative_humidity_2m?: number;
+          weather_code?: number;
+          wind_speed_10m?: number;
+        };
+        daily?: { temperature_2m_max?: number[]; temperature_2m_min?: number[] };
+      };
+      const cur = j.current;
+      const high = j.daily?.temperature_2m_max?.[0];
+      const low = j.daily?.temperature_2m_min?.[0];
+      if (
+        cur &&
+        typeof cur.temperature_2m === "number" &&
+        typeof cur.weather_code === "number" &&
+        typeof high === "number" &&
+        typeof low === "number"
+      ) {
+        const t = weatherText(cur.weather_code);
+        data = {
+          tempC: cur.temperature_2m,
+          code: cur.weather_code,
+          label: t.label,
+          icon: t.icon,
+          highC: high,
+          lowC: low,
+          humidity: cur.relative_humidity_2m ?? 0,
+          windKmh: cur.wind_speed_10m ?? 0,
+          observedAt: cur.time ?? "",
+        };
+      }
+    }
+  } catch {
+    data = null;
+  }
+  weatherCache = { at: nowMs, data };
+  return data;
+}
 
 
 const exportStaticSiteResponse = z.object({
@@ -40,11 +123,43 @@ const feedItemShape = z.object({
   publishedDate: z.string().nullable(),
   fetchedAt: z.string(),
   bookmarked: z.boolean(),
+  freshness: z.enum(["new"]).nullable(),
 });
 
 type FeedRow = typeof schema.feedItems.$inferSelect;
 
-function toFeedItem(row: FeedRow, bookmarkedIds: Set<number>) {
+/* Freshness rule (see DATA-PLAN.md「新增/更新标记机制」): an item is "new"
+   when its fetchedAt falls on the same Beijing calendar day as the newest
+   fetchedAt in the whole feed table, and that newest fetchedAt is at most
+   48 hours old. The tag therefore expires on its own — no cleanup needed. */
+function beijingDay(d: Date): string {
+  return d.toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
+}
+
+function freshnessFor(
+  fetchedAt: Date,
+  maxFetchedAt: Date | null,
+  now: Date,
+): "new" | null {
+  if (!maxFetchedAt) return null;
+  if (now.getTime() - maxFetchedAt.getTime() > 48 * 3600 * 1000) return null;
+  return beijingDay(fetchedAt) === beijingDay(maxFetchedAt) ? "new" : null;
+}
+
+function maxFetchedAtOf(rows: { fetchedAt: Date }[]): Date | null {
+  let max: Date | null = null;
+  for (const r of rows) {
+    if (!max || r.fetchedAt.getTime() > max.getTime()) max = r.fetchedAt;
+  }
+  return max;
+}
+
+function toFeedItem(
+  row: FeedRow,
+  bookmarkedIds: Set<number>,
+  maxFetchedAt: Date | null,
+  now: Date,
+) {
   return {
     id: row.id,
     title: row.title,
@@ -55,6 +170,7 @@ function toFeedItem(row: FeedRow, bookmarkedIds: Set<number>) {
     publishedDate: row.publishedDate,
     fetchedAt: row.fetchedAt.toISOString(),
     bookmarked: bookmarkedIds.has(row.id),
+    freshness: freshnessFor(row.fetchedAt, maxFetchedAt, now),
   };
 }
 
@@ -101,6 +217,8 @@ export const Actions = {
           lng: z.number().nullable(),
           polygon: z.array(z.tuple([z.number(), z.number()])).nullable(),
           pinNote: z.string().nullable(),
+          addedOn: z.string().nullable(),
+          updatedOn: z.string().nullable(),
         }),
       ),
       milestones: z.array(
@@ -194,6 +312,16 @@ export const Actions = {
           z.object({ key: z.string(), caption: z.string(), alt: z.string() }),
         ),
       }),
+      weather: weatherShape.nullable(),
+      evaluation: z.object({
+        asOf: z.string(),
+        overall: z.number(),
+        items: z.array(
+          z.object({ label: z.string(), score: z.number(), basis: z.string() }),
+        ),
+        verdict: z.string(),
+        note: z.string(),
+      }),
     }),
     async handler(ctx) {
       const db = ctx.db<typeof schema>();
@@ -214,6 +342,8 @@ export const Actions = {
             lng: geo?.lng ?? null,
             polygon: geo?.polygon ?? null,
             pinNote: geo?.pinNote ?? null,
+            addedOn: p.addedOn ?? null,
+            updatedOn: p.updatedOn ?? null,
           };
         }),
         milestones: MILESTONES,
@@ -223,6 +353,8 @@ export const Actions = {
         prices: PRICES,
         projectPin: PROJECT_PIN,
         sitePhotos: SITE_PHOTOS,
+        weather: await fetchWeather(),
+        evaluation: EVALUATION,
       };
     },
   }),
@@ -238,6 +370,11 @@ export const Actions = {
       const db = ctx.db<typeof schema>();
       const bmRows = await db.select().from(schema.bookmarks);
       const bookmarkedIds = new Set(bmRows.map((b) => b.feedItemId));
+      const allFetched = await db
+        .select({ fetchedAt: schema.feedItems.fetchedAt })
+        .from(schema.feedItems);
+      const maxFetchedAt = maxFetchedAtOf(allFetched);
+      const now = new Date();
       let rows = await db
         .select()
         .from(schema.feedItems)
@@ -254,7 +391,11 @@ export const Actions = {
         if (da !== dbd) return dbd.localeCompare(da);
         return b.id - a.id;
       });
-      return { items: rows.slice(0, args.limit).map((r) => toFeedItem(r, bookmarkedIds)) };
+      return {
+        items: rows
+          .slice(0, args.limit)
+          .map((r) => toFeedItem(r, bookmarkedIds, maxFetchedAt, now)),
+      };
     },
   }),
 
@@ -488,15 +629,15 @@ export const Actions = {
         if (da !== dbd) return dbd.localeCompare(da);
         return b.id - a.id;
       });
+      const now = new Date();
       const feedItems = rows
         .slice(0, 100)
-        .map((r) => toFeedItem(r, bookmarkedIds));
+        .map((r) => toFeedItem(r, bookmarkedIds, maxFetchedAtOf(rows), now));
       const logs = await db
         .select()
         .from(schema.refreshLogs)
         .orderBy(desc(schema.refreshLogs.id))
         .limit(1);
-      const now = new Date();
       const snapshotText = now.toLocaleString("zh-CN", {
         timeZone: "Asia/Shanghai",
         hour12: false,
@@ -513,12 +654,16 @@ export const Actions = {
             lng: geo?.lng ?? null,
             polygon: geo?.polygon ?? null,
             pinNote: geo?.pinNote ?? null,
+            addedOn: p.addedOn ?? null,
+            updatedOn: p.updatedOn ?? null,
           };
         }),
         milestones: MILESTONES,
         prices: PRICES,
         projectPin: PROJECT_PIN,
         sitePhotos: SITE_PHOTOS,
+        weather: await fetchWeather(),
+        evaluation: EVALUATION,
         feedItems,
         feedCount: rows.length,
         bookmarkCount: bmRows.length,

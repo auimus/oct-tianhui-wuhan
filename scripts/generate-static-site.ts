@@ -14,6 +14,7 @@ import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  EVALUATION,
   MILESTONES,
   PLACE_GEO,
   PLACES,
@@ -21,6 +22,7 @@ import {
   PROJECT,
   PROJECT_PIN,
   SITE_PHOTOS,
+  weatherText,
 } from "../server/src/data";
 import {
   buildStaticReadme,
@@ -72,6 +74,16 @@ function loadFeed(): {
       if (da !== dbd) return dbd.localeCompare(da);
       return b.id - a.id;
     });
+    /* Same freshness rule as the live listFeed action: same Beijing
+       calendar day as the newest fetchedAt, and that newest fetch is
+       at most 48 hours old at snapshot time. */
+    const beijingDay = (d: Date) =>
+      d.toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
+    let maxFetchedAt: number | null = null;
+    for (const r of rows) {
+      if (maxFetchedAt === null || r.fetchedAt > maxFetchedAt) maxFetchedAt = r.fetchedAt;
+    }
+    const nowMs = Date.now();
     const feedItems = rows.slice(0, 100).map((r) => ({
       id: r.id,
       title: r.title,
@@ -82,6 +94,11 @@ function loadFeed(): {
       publishedDate: r.publishedDate,
       fetchedAt: new Date(r.fetchedAt).toISOString(),
       bookmarked: bookmarkedIds.has(r.id),
+      freshness: (maxFetchedAt !== null &&
+      nowMs - maxFetchedAt <= 48 * 3600 * 1000 &&
+      beijingDay(new Date(r.fetchedAt)) === beijingDay(new Date(maxFetchedAt))
+        ? "new"
+        : null) as "new" | null,
     }));
     const last = logs[0];
     return {
@@ -106,8 +123,58 @@ function readImage(name: string, mime: string): string | null {
   return `data:${mime};base64,${readFileSync(path).toString("base64")}`;
 }
 
+/* Snapshot-moment weather from Open-Meteo (same source/coordinates as
+   the live header). Any failure → null and the block is omitted. */
+async function loadWeather(): Promise<StaticSiteData["weather"]> {
+  try {
+    const url =
+      "https://api.open-meteo.com/v1/forecast?latitude=30.6092&longitude=114.4015" +
+      "&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m" +
+      "&daily=temperature_2m_max,temperature_2m_min&timezone=Asia%2FShanghai&forecast_days=1";
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const j = (await res.json()) as {
+      current?: {
+        time?: string;
+        temperature_2m?: number;
+        relative_humidity_2m?: number;
+        weather_code?: number;
+        wind_speed_10m?: number;
+      };
+      daily?: { temperature_2m_max?: number[]; temperature_2m_min?: number[] };
+    };
+    const cur = j.current;
+    const high = j.daily?.temperature_2m_max?.[0];
+    const low = j.daily?.temperature_2m_min?.[0];
+    if (
+      !cur ||
+      typeof cur.temperature_2m !== "number" ||
+      typeof cur.weather_code !== "number" ||
+      typeof high !== "number" ||
+      typeof low !== "number"
+    ) {
+      return null;
+    }
+    const t = weatherText(cur.weather_code);
+    return {
+      tempC: cur.temperature_2m,
+      code: cur.weather_code,
+      label: t.label,
+      icon: t.icon,
+      highC: high,
+      lowC: low,
+      humidity: cur.relative_humidity_2m ?? 0,
+      windKmh: cur.wind_speed_10m ?? 0,
+      observedAt: cur.time ?? "",
+    };
+  } catch {
+    return null;
+  }
+}
+
 const now = new Date();
 const feed = loadFeed();
+const weather = await loadWeather();
 const data: StaticSiteData = {
   snapshotAt: now.toISOString(),
   snapshotText: now.toLocaleString("zh-CN", {
@@ -123,6 +190,8 @@ const data: StaticSiteData = {
       lng: geo?.lng ?? null,
       polygon: geo?.polygon ?? null,
       pinNote: geo?.pinNote ?? null,
+      addedOn: p.addedOn ?? null,
+      updatedOn: p.updatedOn ?? null,
     };
   }),
   milestones: MILESTONES,
@@ -133,6 +202,8 @@ const data: StaticSiteData = {
   feedCount: feed.feedCount,
   bookmarkCount: feed.bookmarkCount,
   lastRefreshAt: feed.lastRefreshAt,
+  weather,
+  evaluation: EVALUATION,
 };
 
 const images: StaticImages = {

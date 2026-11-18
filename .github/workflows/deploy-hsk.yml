@@ -1,0 +1,141 @@
+name: Deploy Tianhui to HSK
+
+on:
+  schedule:
+    # 03:00 UTC = 11:00 Asia/Shanghai.
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: Update even when the hosted HTML already matches
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: tianhui-hsk-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.repository == 'auimus/oct-tianhui-wuhan' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      HSK_RESOURCE_ID: '1794975944996863971'
+      HSK_PUBLIC_URL: https://yrxbis.kicp.fun
+      HSK_CLI_VERSION: '0.10.11'
+
+    steps:
+      - name: Fetch and compare the committed HTML snapshot
+        id: snapshot
+        env:
+          FORCE_DEPLOY: '${{ inputs.force_deploy || false }}'
+        shell: bash
+        run: |
+          dir="$RUNNER_TEMP/tianhui-hsk"
+          mkdir -p "$dir"
+          curl --fail --silent --show-error --retry 2 --connect-timeout 10 --max-time 45 \
+            "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/site/index.html" \
+            --output "$dir/index.html"
+
+          node - "$dir/index.html" <<'NODE'
+          const html = require('node:fs').readFileSync(process.argv[2], 'utf8');
+          if (!/<html(?:\s|>)/i.test(html) || !/<\/html>\s*$/i.test(html) ||
+              !/<title[^>]*>[^<]*华侨城·天荟/.test(html)) {
+            throw new Error('Expected the complete Tianhui HTML snapshot.');
+          }
+          NODE
+
+          if [[ "$FORCE_DEPLOY" != "true" ]] &&
+             curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+               --header 'Cache-Control: no-cache' "$HSK_PUBLIC_URL" --output "$dir/current.html" &&
+             cmp -s "$dir/index.html" "$dir/current.html"; then
+            echo 'needs_update=false' >> "$GITHUB_OUTPUT"
+            echo 'Hosted HTML is already current.'
+          else
+            echo 'needs_update=true' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prepare the HSK CLI
+        if: steps.snapshot.outputs.needs_update == 'true'
+        shell: bash
+        run: |
+          npm install --global "@aweray/hsk-cli@$HSK_CLI_VERSION"
+          hsk-cli download --format json | jq -e '.success == true' >/dev/null
+          if ! hsk-cli doctor --format json | jq -e '.success == true' >/dev/null; then
+            hsk-cli doctor --fix --format json >/dev/null
+            hsk-cli doctor --format json | jq -e '.success == true' >/dev/null
+          fi
+          hsk-cli context wizard --format json | jq -e '.success == true' >/dev/null
+          jq -nc --arg file "$RUNNER_TEMP/tianhui-hsk/index.html" '{
+            answers: [
+              {field: "task_goal", value: "share_file"},
+              {field: "agent_channel", value: "none"},
+              {field: "reviewed_files", value: $file},
+              {field: "sensitivity_signals", value: "none"},
+              {field: "content_sensitivity", value: "non_sensitive"}
+            ]
+          }' | hsk-cli context wizard --stdin --format json | jq -e '.success == true' >/dev/null
+
+      - name: Update the existing HSK resource
+        if: steps.snapshot.outputs.needs_update == 'true'
+        id: update
+        env:
+          HSK_FILE_HOSTING_API_KEY: '${{ secrets.HSK_FILE_HOSTING_API_KEY }}'
+        shell: bash
+        run: |
+          if [[ -z "$HSK_FILE_HOSTING_API_KEY" ]]; then
+            echo '::error::Missing the HSK_FILE_HOSTING_API_KEY Actions secret.'
+            exit 1
+          fi
+          dir="$RUNNER_TEMP/tianhui-hsk"
+          file="$dir/index.html"
+          if printf '%s\n' "$HSK_FILE_HOSTING_API_KEY" |
+             env -u HSK_FILE_HOSTING_API_KEY timeout 120s hsk-cli file-hosting update "$file" \
+               --resource-id "$HSK_RESOURCE_ID" --yes --api-key-stdin --format json \
+               --context "task_goal=share_file,agent_channel=none,reviewed_files=$file,sensitivity_signals=none,content_sensitivity=non_sensitive" \
+               > "$dir/update.json" 2> "$dir/update.stderr"; then
+            jq -es --arg id "$HSK_RESOURCE_ID" --arg url "$HSK_PUBLIC_URL" \
+              'any(.[]; .success == true and .mode == "update" and .resourceId == $id and (.publicUrl | rtrimstr("/")) == $url)' \
+              "$dir/update.json" >/dev/null
+            echo 'timed_out=false' >> "$GITHUB_OUTPUT"
+          else
+            rc=$?
+            if [[ "$rc" -ne 124 ]]; then
+              code=$(jq -rs '[.[] | .code? | strings | select(test("^[A-Z0-9_]+$"))] | last // "unknown"' \
+                "$dir/update.json" 2>/dev/null || echo unknown)
+              echo "::error::HSK update failed (exit $rc; code $code)."
+              exit "$rc"
+            fi
+            echo '::warning::HSK update timed out; checking the live resource without reuploading.'
+            echo 'timed_out=true' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify the published HTML
+        if: steps.snapshot.outputs.needs_update == 'true'
+        env:
+          FORCE_DEPLOY: '${{ inputs.force_deploy || false }}'
+          UPDATE_TIMED_OUT: '${{ steps.update.outputs.timed_out }}'
+        shell: bash
+        run: |
+          dir="$RUNNER_TEMP/tianhui-hsk"
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --silent --show-error --connect-timeout 10 --max-time 25 \
+                 --header 'Cache-Control: no-cache' "$HSK_PUBLIC_URL" --output "$dir/published.html" &&
+               cmp -s "$dir/index.html" "$dir/published.html"; then
+              if [[ "$UPDATE_TIMED_OUT" == "true" ]]; then
+                echo 'The live HTML matches; the timed-out command was not retried.'
+                if [[ "$FORCE_DEPLOY" == "true" ]]; then
+                  echo '::error::The forced update was not acknowledged by HSK.'
+                  exit 1
+                fi
+              fi
+              echo "Verified $HSK_PUBLIC_URL matches $GITHUB_SHA."
+              exit 0
+            fi
+            if [[ "$attempt" -lt 5 ]]; then sleep 4; fi
+          done
+          echo '::error::The public URL did not return the expected HTML.'
+          exit 1

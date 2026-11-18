@@ -76,40 +76,38 @@ export const PLACES: Place[] = [
   // 交通
   { name: "地铁 4 号线 · 工业四路站", category: "交通", distanceText: "约 177 米", distanceM: 177, status: "已运营", description: "B 口步行约 2 分钟。4 号线直达武昌火车站、中南路、楚河汉街，可换乘 2、3、7 号线通达三镇。", sourceUrl: SRC_MAIN },
   { name: "地铁 4 号线 · 杨春湖站", category: "交通", distanceText: "约 1 公里", distanceM: 1000, status: "已运营", description: "位于杨春湖路与明德路交汇处，4 号线一站达武汉站方向。", sourceUrl: SRC_MAIN, addedOn: "2026-11-17" },
-  { name: "地铁 10 号线 / 新港线 · 北洋桥站", category: "交通", distanceText: "约 400 米", distanceM: 400, status: "在建", description: "新港线一期起点站，2023-12-22 开工。10 号线一期（汉口火车站—北洋桥）同步在建，设计时速 120 公里，通车后武汉站↔汉口站地铁约 25 分钟（现约 1 小时）。", sourceUrl: SRC_BENDIBAO },
+  { name: "地铁 10 号线 / 新港线 · 北洋桥站", category: "交通", distanceText: "约 550 米", distanceM: 545, status: "在建", description: "新港线一期起点站，2023-12-22 开工。10 号线一期（汉口火车站—北洋桥）同步在建，设计时速 120 公里，通车后武汉站↔汉口站地铁约 25 分钟（现约 1 小时）。", sourceUrl: SRC_BENDIBAO, updatedOn: "2026-11-18" },
   { name: "公交 · 团结大道地铁工业四路站", category: "交通", distanceText: "约 259 米", distanceM: 259, status: "已运营", description: "最近公交站，周边约 10 条线路；片区 1 公里内有多个站点、多条线路覆盖（宣传口径）。", sourceUrl: SRC_MAIN },
   { name: "武汉站（高铁）", category: "交通", distanceText: "约 1.5 公里", distanceM: 1500, status: "已运营", description: "经杨春湖路/团结大道可达；城际与高铁通达武汉城市圈及全国主要城市。", sourceUrl: SRC_MAIN },
   { name: "地铁 19 号线 · 武汉站西广场站", category: "交通", distanceText: "约 1.5 公里", distanceM: 1500, status: "已运营", description: "19 号线连接武汉站与光谷方向，可在武汉站西广场换乘。", sourceUrl: SRC_MAIN },
   { name: "团结大道 / 欢乐大道 / 友谊大道", category: "交通", distanceText: "门口主干道", distanceM: 60, status: "已运营", description: "“三横两纵”路网骨架，团结大道双向 6 车道，可快速接驳二环线、三环线。临主干道楼栋需留意高峰车流噪音。", sourceUrl: SRC_DEEP },
   // 商业
   { name: "天荟自带社区商业", category: "商业", distanceText: "社区内 · 约 6,000 ㎡", distanceM: 30, status: "规划中", description: "规划引入生鲜超市、便民药房、特色餐饮等日常业态，覆盖买菜、早餐、洗衣、理发等高频需求；一期另有 4 层商业楼。", sourceUrl: SRC_DEEP },
-  { name: "山姆会员店（洪山店 · 武汉第 5 家）", category: "商业", distanceText: "片区内 · 团结大道南侧", distanceM: 900, status: "在建", description: "2026-09-29 随杨春湖高铁商务区科创产业园开工：门店约 7.5 万㎡，配套 1000 个专属车位，武汉首座按绿建三星标准建设的山姆；东侧地块为 14.8 万㎡科创产业园（总部办公、五星级酒店、人才公寓）。", sourceUrl: SRC_SAM, addedOn: "2026-11-17" },
-  { name: "武汉金诺奥特莱斯", category: "商业", distanceText: "和平街道 · 紧邻团结大道", distanceM: 9999, status: "在建", description: "2026-11-04 在洪山区和平街道正式开工，选址和平村 C3、C4 产业用地。定位“奥莱+购物公园”，业态包括名品零售、休闲体验、生活配套、潮流消费；总占地 130.12 亩，总投资约 10 亿元，规划总建筑面积约 17 万㎡，紧邻团结大道，地铁 4 号线、12 号线双轨环绕。建成后将成为杨春湖片区规模领先的商业综合体，与山姆会员店洪山店形成互补。开业/建成时间尚未公布，以官方后续公示为准。", sourceUrl: SRC_JINNUO, addedOn: "2026-11-17" },
+  { name: "山姆会员店（洪山店 · 武汉第 5 家）", category: "商业", distanceText: "约 1.4 公里 · 仁和路东侧", distanceM: 1400, status: "在建", description: "选址洪山区和平街道团结大道南侧、仁和路东侧，近地铁 4 号线仁和路站（湖北日报口径）。2026-09-29 随杨春湖高铁商务区科创产业园开工：105 亩地块西部为山姆门店约 7.5 万㎡，配套 1000 个专属车位，武汉首座按绿建三星标准建设的山姆；东部地块为 14.8 万㎡科创产业园（总部办公、五星级酒店、人才公寓）。", sourceUrl: SRC_SAM, addedOn: "2026-11-17", updatedOn: "2026-11-18" },
+  { name: "武汉金诺奥特莱斯", category: "商业", distanceText: "约 2.9 公里 · 园林路与团结大道交汇一带", distanceM: 2900, status: "在建", description: "2026-11-04 在洪山区和平街道正式开工，选址和平村 C3、C4 产业用地。定位“奥莱+购物公园”，业态包括名品零售、休闲体验、生活配套、潮流消费；总占地 130.12 亩，总投资约 10 亿元，规划总建筑面积约 17 万㎡，紧邻团结大道，地铁 4 号线、12 号线双轨环绕。建成后将成为杨春湖片区规模领先的商业综合体，与山姆会员店洪山店形成互补。开业/建成时间尚未公布，以官方后续公示为准。", sourceUrl: SRC_JINNUO, addedOn: "2026-11-17", updatedOn: "2026-11-18" },
   { name: "欢乐天际广场区", category: "商业", distanceText: "紧邻东侧", distanceM: 350, status: "在建", description: "华侨城欢乐天际中央区组成部分，规划写字楼、公寓、购物中心（奥特莱斯方向）与开放式餐饮街区，正在逐步落地。", sourceUrl: SRC_DEEP },
-  { name: "金地广场", category: "商业", distanceText: "约 2.6 公里", distanceM: 2600, status: "已运营", description: "地铁 4 号线一站可达，购物、餐饮、影院、亲子业态齐全，是目前片区最成熟的日常大商业。", sourceUrl: SRC_MAIN },
+  { name: "金地广场", category: "商业", distanceText: "约 1.9 公里", distanceM: 1874, status: "已运营", description: "地铁 4 号线一站可达，购物、餐饮、影院、亲子业态齐全，是目前片区最成熟的日常大商业。", sourceUrl: SRC_MAIN, updatedOn: "2026-11-18" },
   { name: "东方里 / 原溪商业街", category: "商业", distanceText: "近距离 · 街区商业", distanceM: 1200, status: "已运营", description: "周边社区街区商业，补充餐饮与生活服务。", sourceUrl: SRC_DEEP },
-  { name: "武汉印象城", category: "商业", distanceText: "约 4.9 公里", distanceM: 4900, status: "已运营", description: "青山方向大型购物中心，驱车或公交可达。", sourceUrl: SRC_MAIN },
-  { name: "武商城市奥莱", category: "商业", distanceText: "约 5 公里", distanceM: 5000, status: "已运营", description: "奥特莱斯业态，品牌折扣购物。", sourceUrl: SRC_MAIN },
+  { name: "武汉印象城", category: "商业", distanceText: "约 3.2 公里", distanceM: 3239, status: "已运营", description: "青山方向大型购物中心，驱车或公交可达。", sourceUrl: SRC_MAIN, updatedOn: "2026-11-18" },
+  { name: "武商城市奥莱", category: "商业", distanceText: "约 3.6 公里", distanceM: 3606, status: "已运营", description: "奥特莱斯业态，品牌折扣购物。", sourceUrl: SRC_MAIN, updatedOn: "2026-11-18" },
   // 教育
   { name: "武汉小学洪山华侨城分校", category: "教育", distanceText: "约 493 米", distanceM: 493, status: "已运营", description: "2023 年秋季开学，纳入武汉小学教育管理集团体系。2025 年洪山区划片中，华侨城欢乐天际对口该校；天荟交付后划片以当年官方公示为准。", sourceUrl: SRC_MAIN, addedOn: "2026-11-17" },
-  { name: "街道口小学教育集团北洋桥分校", category: "教育", distanceText: "约 988 米", distanceM: 988, status: "已运营", description: "项目周边小学之一（直线距离）。", sourceUrl: SRC_MAIN },
-  { name: "街道口小学（东方雅园分校）", category: "教育", distanceText: "约 994 米", distanceM: 994, status: "已运营", description: "项目周边小学之一（直线距离）。", sourceUrl: SRC_MAIN },
-  { name: "七一华源中学（东湖分校）", category: "教育", distanceText: "1 公里以外", distanceM: 1300, status: "规划中", description: "片区规划中学，宣传口径预计 2027 年开学；以教育主管部门正式公示为准。", sourceUrl: SRC_DEEP, addedOn: "2026-11-17" },
+  { name: "街道口小学（东方雅园分校）", category: "教育", distanceText: "约 994 米", distanceM: 994, status: "已运营", description: "项目周边小学之一（直线距离）。北洋桥小学已并入该校。", sourceUrl: SRC_MAIN, updatedOn: "2026-11-18" },
+  { name: "七一华源中学（东湖新城分校）", category: "教育", distanceText: "1 公里以外", distanceM: 1300, status: "规划中", description: "官方名为七一华源中学东湖新城分校，片区规划中学。据洪山区政府 2025 年政协提案答复，该校尚在设计招标阶段、选址未公示；「预计 2027 年开学」仅为宣传口径，无官方确认，以教育主管部门正式公示为准。与仁和路已开工的「七一华源中学东湖分校」不是同一所学校。", sourceUrl: SRC_DEEP, addedOn: "2026-11-17", updatedOn: "2026-11-18" },
   { name: "武汉市钢城第十二中学", category: "教育", distanceText: "约 1.7 公里", distanceM: 1700, status: "已运营", description: "周边中学（直线距离）。", sourceUrl: SRC_MAIN },
   { name: "武汉市钢城第十六中学", category: "教育", distanceText: "约 1.8 公里", distanceM: 1800, status: "已运营", description: "周边中学（直线距离）。", sourceUrl: SRC_MAIN },
-  { name: "武汉杨春湖实验学校", category: "教育", distanceText: "约 2.7 公里", distanceM: 2700, status: "已运营", description: "片区九年一贯制学校（直线距离）。", sourceUrl: SRC_MAIN },
+  { name: "武汉杨春湖实验学校", category: "教育", distanceText: "约 2.7 公里", distanceM: 2700, status: "已运营", description: "民办九年一贯制学校，片区学校（直线距离）。", sourceUrl: SRC_MAIN, updatedOn: "2026-11-18" },
   { name: "天荟二期幼儿园", category: "教育", distanceText: "社区内（二期地块）", distanceM: 100, status: "规划中", description: "二期 01、02 地块规划 1 栋幼儿园，随二期建设。", sourceUrl: SRC_MAIN },
   // 医疗
   { name: "武汉市中心医院杨春湖院区", category: "医疗", distanceText: "约 1.2 公里", distanceM: 1200, status: "已运营", description: "三级甲等综合医院新院区（洪山区礼和路 188 号），已投入运营，是片区最重要的医疗资源；距本项目直线约 1.2 公里（图钉实测约 1.15 公里）。部分售楼宣传口径称约 2.1 公里，与图钉实测不符，应为行车/配套测距口径，此处以实测直线距离为准。", sourceUrl: SRC_MAIN, updatedOn: "2026-11-17" },
-  { name: "华润武钢总医院", category: "医疗", distanceText: "约 3.9 公里", distanceM: 3900, status: "已运营", description: "青山方向综合医院（直线距离）。", sourceUrl: SRC_MAIN },
-  { name: "武汉大学人民医院（省人民医院）青山院区", category: "医疗", distanceText: "约 4.5 公里", distanceM: 4500, status: "已运营", description: "三甲医院院区（直线距离）。", sourceUrl: SRC_MAIN, addedOn: "2026-11-17" },
-  { name: "武汉市第九医院", category: "医疗", distanceText: "约 4.8 公里", distanceM: 4800, status: "已运营", description: "青山方向综合医院（直线距离）。", sourceUrl: SRC_MAIN },
+  { name: "华润武钢总医院", category: "医疗", distanceText: "约 2.9 公里", distanceM: 2876, status: "已运营", description: "青山方向综合医院（直线距离）。", sourceUrl: SRC_MAIN, updatedOn: "2026-11-18" },
+  { name: "武汉市第九医院", category: "医疗", distanceText: "约 3.2 公里", distanceM: 3199, status: "已运营", description: "青山方向综合医院（直线距离）。", sourceUrl: SRC_MAIN, updatedOn: "2026-11-18" },
   // 生态文旅
-  { name: "两港公园", category: "生态文旅", distanceText: "约 500 米", distanceM: 500, status: "已运营", description: "沿港渠景观公园，日常散步、亲子活动空间。", sourceUrl: SRC_DEEP },
-  { name: "东湖风景区", category: "生态文旅", distanceText: "约 700 米", distanceM: 700, status: "已运营", description: "项目紧邻东湖北岸；高铁商务区规划 18 公里绿道与 6.7 公里水上游线，串联湖岸生态。", sourceUrl: SRC_DEEP },
-  { name: "杨春湖公园", category: "生态文旅", distanceText: "约 800 米", distanceM: 800, status: "已运营", description: "武汉站旁的湖泊公园，与北洋桥中央生态公园、两港公园构成片区绿地体系。", sourceUrl: SRC_DEEP },
+  { name: "两港公园", category: "生态文旅", distanceText: "约 700 米", distanceM: 702, status: "已运营", description: "沿港渠景观公园，日常散步、亲子活动空间。", sourceUrl: SRC_DEEP, updatedOn: "2026-11-18" },
+  { name: "东湖风景区", category: "生态文旅", distanceText: "约 1.0 公里", distanceM: 991, status: "已运营", description: "项目紧邻东湖北岸；高铁商务区规划 18 公里绿道与 6.7 公里水上游线，串联湖岸生态。", sourceUrl: SRC_DEEP, updatedOn: "2026-11-18" },
+  { name: "杨春湖公园", category: "生态文旅", distanceText: "约 1.3 公里", distanceM: 1305, status: "已运营", description: "武汉站旁的湖泊公园，与北洋桥中央生态公园、两港公园构成片区绿地体系。", sourceUrl: SRC_DEEP, updatedOn: "2026-11-18" },
   { name: "北洋桥中央生态公园", category: "生态文旅", distanceText: "片区内", distanceM: 600, status: "在建", description: "东湖新城核心区公园，洪山区政府答复称计划 2025 年 12 月底基本完成主体建设。", sourceUrl: SRC_GOV },
-  { name: "武汉欢乐谷 / 玛雅海滩水公园", category: "生态文旅", distanceText: "欢乐大道沿线", distanceM: 2800, status: "已运营", description: "华侨城在武汉的文旅旗舰，周末休闲目的地，地铁/自驾均可达。", sourceUrl: SRC_DEEP },
+  { name: "武汉欢乐谷 / 玛雅海滩水公园", category: "生态文旅", distanceText: "约 2.2 公里 · 欢乐大道沿线", distanceM: 2190, status: "已运营", description: "华侨城在武汉的文旅旗舰，周末休闲目的地，地铁/自驾均可达。", sourceUrl: SRC_DEEP, updatedOn: "2026-11-18" },
 ];
 
 /* Map geometry for the catalog above, keyed by place name. Coordinates were
@@ -254,24 +252,6 @@ export const PLACE_GEO: Record<string, PlaceGeo> = {
       [114.385001, 30.592391],
     ],
   },
-  "街道口小学教育集团北洋桥分校": {
-    lat: 30.61813,
-    lng: 114.40059,
-    polygon: [
-      [114.400105, 30.61864],
-      [114.400007, 30.618432],
-      [114.400059, 30.618411],
-      [114.399964, 30.618037],
-      [114.400913, 30.617626],
-      [114.401077, 30.617947],
-      [114.401081, 30.618065],
-      [114.401222, 30.618327],
-      [114.400748, 30.618599],
-      [114.400105, 30.61864],
-    ],
-    pinNote:
-      "OpenStreetMap 将该校园标注为「武汉市洪山区北洋桥小学」（地址信和路 19 号），多边形为校园实测轮廓；本条目口径距离约 988 米与该校园实测距离（约 990 米）吻合",
-  },
   "武汉杨春湖实验学校": {
     lat: 30.6146,
     lng: 114.4285,
@@ -300,7 +280,7 @@ export const PLACE_GEO: Record<string, PlaceGeo> = {
     lat: 30.60242,
     lng: 114.37253,
     pinNote:
-      "项目在和平街道园林路开工、紧邻团结大道（赢商网/观点网报道）；图钉落在园林路与团结大道交汇处（地铁 4 号线园林路站）一带，工地范围尚无公开实测轮廓",
+      "近似定位：项目在和平街道园林路开工、紧邻团结大道（赢商网/观点网报道）；图钉落在园林路与团结大道交汇处（地铁 4 号线园林路站）一带，为路口近似点，地块四至未公示，工地范围尚无公开实测轮廓",
   },
   "公交 · 团结大道地铁工业四路站": {
     lat: 30.61,
@@ -347,10 +327,10 @@ export const PLACE_GEO: Record<string, PlaceGeo> = {
      be verified, so the pin sits at the most likely point inside the known
      location range and pinNote labels it 近似定位. See DATA-PLAN.md. */
   "山姆会员店（洪山店 · 武汉第 5 家）": {
-    lat: 30.6075,
-    lng: 114.4095,
+    lat: 30.6065,
+    lng: 114.3875,
     pinNote:
-      "近似定位：项目选址洪山区和平街道团结大道南侧核心地块（杨春湖高铁商务区科创产业园，公开报道），山姆位于园区西地块；地块四至未公示，图钉按「团结大道南侧、高铁商务区核心区西部」落在杨春湖站西南侧一带，为近似位置，待官方公布地块范围后校正",
+      "近似定位：选址据湖北日报为和平街道团结大道南侧、仁和路东侧（近 4 号线仁和路站，站址经 OpenStreetMap 核实为 30.6074, 114.3835），山姆位于 105 亩地块西部；地块四至未公示，图钉落在仁和路/团结大道交叉口东南一带，为近似位置，待官方公布地块范围后校正",
   },
   "武汉小学洪山华侨城分校": {
     lat: 30.6098,
@@ -358,17 +338,11 @@ export const PLACE_GEO: Record<string, PlaceGeo> = {
     pinNote:
       "近似定位：该校即洪山区东湖新城小学，洪山区教育局 2026 年责任督学名单载明其地址为和平街道团结大道，对口欢乐天际等小区；OpenStreetMap 未收录该校。图钉按门牌所在路段与公开测距（约 0.49-0.66 公里，图钉实测约 0.55 公里）落在团结大道南侧、欢乐天际一带，为近似位置",
   },
-  "七一华源中学（东湖分校）": {
+  "七一华源中学（东湖新城分校）": {
     lat: 30.6088,
     lng: 114.415,
     pinNote:
-      "近似定位：该校为东湖新城规划中学，洪山区政府 2025 年政协提案答复称仍在设计招标阶段、力争开工，选址未公示；图钉按条目口径（1 公里以外、约 1.3 公里，图钉实测约 1.3 公里）落在东湖新城核心区（杨春湖站南侧）一带，为近似位置，待官方公布选址后校正",
-  },
-  "武汉大学人民医院（省人民医院）青山院区": {
-    lat: 30.6435,
-    lng: 114.4008,
-    pinNote:
-      "近似定位：公开来源（Moovit 交通指南、社区医疗点地址）载明该院区位于青山区红钢四街 5 号一带；OpenStreetMap 未收录红钢四街与该院区要素。图钉按 OSM 红钢一街、二街、三街的走向与间距推定四街位置后落在红钢城片区内，为近似位置；条目距离为售楼配套测距口径",
+      "近似定位：该校官方名为七一华源中学东湖新城分校，洪山区政府 2025 年政协提案答复称仍在设计招标阶段、力争开工，选址未公示；与仁和路已开工的「七一华源中学东湖分校」不是同一所。图钉按条目口径（1 公里以外、约 1.3 公里，图钉实测约 1.3 公里）落在东湖新城核心区（杨春湖站南侧）一带，为近似位置，待官方公布选址后校正",
   },
 };
 
@@ -406,7 +380,7 @@ export type Milestone = {
 
 export const MILESTONES: Milestone[] = [
   { dateText: "2023-09", title: "武汉小学洪山华侨城分校开学", description: "片区教育配套先行落地，纳入武汉小学教育管理集团体系。", category: "教育医疗", future: false, sourceUrl: SRC_MAIN },
-  { dateText: "2023-12-22", title: "新港线一期北洋桥站开工", description: "北洋桥站第一段地下连续墙导墙浇筑完成，车站正式开工——未来的 10 号线/新港线站点距天荟约 400 米。", category: "交通", future: false, sourceUrl: SRC_BENDIBAO },
+  { dateText: "2023-12-22", title: "新港线一期北洋桥站开工", description: "北洋桥站第一段地下连续墙导墙浇筑完成，车站正式开工——未来的 10 号线/新港线站点距天荟约 550 米。", category: "交通", future: false, sourceUrl: SRC_BENDIBAO },
   { dateText: "2024-12-13", title: "天荟地块成交", description: "P（2024）149 号地块（原欢乐天际中央区 TOD 地块调规后重新挂牌）由武汉天创置业以底价 24.2 亿元竞得，楼面地价 7700 元/㎡，规划由写字楼/商业为主调整为住宅为主、商业办公为辅。", category: "开发进展", future: false, sourceUrl: SRC_MAIN },
   { dateText: "2025-07-11", title: "天荟一期首开", description: "首开取证约 310 套，开盘均价约 13,500 元/㎡（销售口径）。", category: "开发进展", future: false, sourceUrl: SRC_MAIN },
   { dateText: "2025", title: "杨春湖提档升级为“东湖新城”", description: "洪山区政府答复政协提案：恢复东湖新城市区联席会议机制，核心区道路（礼和路、信和路等）、高压线迁改、北洋桥公园等配套全面推进，重点项目纳入区级包保。", category: "片区规划", future: false, sourceUrl: SRC_GOV },
@@ -414,7 +388,7 @@ export const MILESTONES: Milestone[] = [
   { dateText: "2026-10", title: "地铁 10 号线越江盾构完成 45%", description: "余家头站越江大盾构已掘进 700 环；10 号线一期全长约 19 公里、8 站 7 换乘，设计时速 120 公里。", category: "交通", future: false, sourceUrl: SRC_BENDIBAO },
   { dateText: "2026-11-05", title: "地铁 10 号线盾构下穿 5 号线", description: "余家头—钢都花园区间盾构顺利下穿运营中的 5 号线，监测指标受控，实现“毫米级”穿越（长江日报）。", category: "交通", future: false, sourceUrl: SRC_METRO10 },
   { dateText: "2027-06-30", title: "天荟一期预计交付", description: "一期 7 栋住宅预计毛坯交付（以开发商正式交付通知为准）。", category: "开发进展", future: true, sourceUrl: SRC_MAIN },
-  { dateText: "2027（预计）", title: "七一华源中学东湖分校预计开学", description: "片区规划中学，宣传口径预计 2027 年投入使用；以官方公示为准。", category: "教育医疗", future: true, sourceUrl: SRC_DEEP },
+  { dateText: "2027（预计）", title: "七一华源中学东湖新城分校预计开学（宣传口径）", description: "片区规划中学，官方名为东湖新城分校，尚在设计招标阶段、选址未公示；宣传口径预计 2027 年投入使用，无官方确认，以官方公示为准。与仁和路已开工的东湖分校不是同一所。", category: "教育医疗", future: true, sourceUrl: SRC_DEEP },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -628,13 +602,13 @@ export const EVALUATION = {
       label: "生态环境",
       score: 8.5,
       basis:
-        "东湖约 700 米，杨春湖公园、两港公园与严西湖水系环绕，是片区最稀缺的资源。",
+        "东湖约 1.0 公里，杨春湖公园、两港公园与严西湖水系环绕，是片区最稀缺的资源。",
     },
     {
       label: "教育医疗",
       score: 7.5,
       basis:
-        "武汉小学华侨城分校约 493 米、七一华源中学东湖分校在侧，市中心医院杨春湖院区约 1.2 公里、三甲资源可达；但划片以当年公示为准，确定性待观察。",
+        "武汉小学华侨城分校约 493 米、七一华源中学东湖新城分校规划中，市中心医院杨春湖院区约 1.2 公里、三甲资源可达；但划片以当年公示为准，确定性待观察。",
     },
     {
       label: "价格与潜力",

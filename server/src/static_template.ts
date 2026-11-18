@@ -224,10 +224,12 @@ function lineChartSvg(
   points: { label: string; value: number }[],
   color: string,
   ariaLabel: string,
+  w?: number,
+  h?: number,
 ): string {
   if (points.length === 0) return "";
-  const W = 720;
-  const H = 190;
+  const W = w ?? 720;
+  const H = h ?? 190;
   const padL = 8;
   const padR = 8;
   const padT = 26;
@@ -384,25 +386,28 @@ const CSS = `
 :root{color-scheme:light dark;--bg:#f7f5f0;--surface:#fffdf8;--surface-alt:#efeae0;--text:#1c2321;--dim:#5c6b68;--border:#ddd6c8;--accent:#0f5e5c;--accent-soft:#e3efec;--amber:#b97a14;--amber-soft:#faf0dc;--brick:#b84a2b;--brick-soft:#f9e9e3;--radius:10px}
 @media (prefers-color-scheme:dark){:root{--bg:#121614;--surface:#1b201e;--surface-alt:#242a28;--text:#ece9e2;--dim:#9aa8a4;--border:#333b38;--accent:#4fb8b0;--accent-soft:#1d3230;--amber:#e5a83e;--amber-soft:#38300f;--brick:#e07a56;--brick-soft:#3a241c}}
 *{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 body{margin:0;background:var(--bg);color:var(--text);font-family:"Noto Sans SC",system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;font-size:16px;line-height:1.65}
-main{max-width:860px;margin:0 auto;padding:20px 16px 56px}
-h1{font-size:34px;line-height:1.25;margin:6px 0 2px}
-h2{font-size:24px;margin:38px 0 6px;padding-top:10px}
-h3{font-size:17px;margin:22px 0 4px}
+main{max-width:1120px;margin:0 auto;padding:16px 16px 40px}
+section[id]{scroll-margin-top:64px}
+h1{font-size:32px;line-height:1.25;margin:6px 0 2px}
+h2{font-size:23px;margin:26px 0 4px;padding-top:6px}
+h3{font-size:17px;margin:16px 0 4px}
 p{margin:6px 0}
 a{color:var(--accent)}
 .dim{color:var(--dim)}
 .small{font-size:13px}
-nav.toc{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
-nav.toc a{border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:4px 12px;text-decoration:none;font-size:14px;color:var(--text)}
+.topnav{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;gap:8px;padding:10px 0;margin-top:14px;background:var(--bg);border-bottom:1px solid var(--border)}
+.topnav a{border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:5px 14px;text-decoration:none;font-size:14px;color:var(--text);font-weight:600}
+.topnav a:active{background:var(--accent-soft)}
 .kicker{font-size:12px;letter-spacing:.18em;color:var(--accent);font-weight:600}
 .countdown{font-size:30px;font-weight:800;color:var(--brick)}
-.grid4{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-top:12px}
-@media(min-width:640px){.grid4{grid-template-columns:repeat(4,1fr)}}
-.grid4>div{background:var(--surface);padding:10px 12px}
-.grid4 .v{font-size:20px;font-weight:800;color:var(--accent)}
-.grid4 .k{font-size:12px;color:var(--dim)}
-.card{border:1px solid var(--border);background:var(--surface);border-radius:var(--radius);padding:14px 16px;margin-top:10px}
+.metrics{display:flex;flex-wrap:wrap;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-top:10px}
+.metrics>div{background:var(--surface);padding:8px 12px;flex:1 1 150px;min-width:0}
+.metrics .v{font-size:19px;font-weight:800;color:var(--accent)}
+.metrics .k{font-size:12px;color:var(--dim)}
+.card{border:1px solid var(--border);background:var(--surface);border-radius:var(--radius);padding:12px 14px;margin-top:8px}
 .chip{display:inline-block;border-radius:999px;padding:0 9px;font-size:12px;line-height:1.7;background:var(--surface-alt);color:var(--dim);margin-right:6px}
 .chip-cat{background:var(--accent-soft);color:var(--accent)}
 .chip-open{background:#ddf3e9;color:#047857}
@@ -440,7 +445,7 @@ figcaption{font-size:13px;color:var(--dim);margin-top:5px}
 .badge-planned{border-color:#64748b;background:#e9edf1}
 @media (prefers-color-scheme:dark){.badge-open{background:#173f31}.badge-building{background:#4d3a14}.badge-planned{background:#2e3742}}
 .place-row{display:flex;gap:10px}
-footer{margin-top:44px;border-top:1px solid var(--border);padding-top:14px;font-size:13px;color:var(--dim)}
+footer{margin-top:32px;border-top:1px solid var(--border);padding-top:14px;font-size:13px;color:var(--dim)}
 details{margin-top:8px}
 summary{cursor:pointer;color:var(--accent);font-size:14px}
 .hidden{display:none!important}
@@ -461,8 +466,8 @@ summary{cursor:pointer;color:var(--accent);font-size:14px}
 .eval-row .lab{width:72px;flex-shrink:0;font-weight:700;font-size:14px}
 .eval-row .sc{width:32px;flex-shrink:0;text-align:right;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums}
 .eval-basis{margin:3px 0 0 84px;font-size:14px;color:var(--dim)}
-.ml-map{width:100%;height:440px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface-alt)}
-@media(max-width:640px){.ml-map{height:380px}}
+.ml-map{width:100%;height:420px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface-alt)}
+@media(max-width:640px){.ml-map{height:360px}}
 .ml-pin{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9999px;background:#fff;font-size:15px;line-height:1;border:2.5px solid var(--accent);box-shadow:0 1px 5px rgb(0 0 0/.35);cursor:pointer;padding:0;font-family:inherit}
 .ml-pin--st-open{border-color:#059669;background:#ddf3e9}
 .ml-pin--st-building{border-color:#d97706;background:#fdf0dc}
@@ -487,6 +492,23 @@ summary{cursor:pointer;color:var(--accent);font-size:14px}
 .ml-popup-note{margin:8px 0 0;font-size:14px;line-height:1.6;color:var(--dim)}
 .ml-popup-pinnote{margin:6px 0 0;font-size:12px;line-height:1.5;color:var(--dim);opacity:.85}
 .ml-popup-link{display:inline-block;margin-top:6px;padding:2px 0;font-size:14px;font-weight:500;color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+.unit-grid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
+@media(min-width:560px){.unit-grid{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:1024px){.unit-grid{grid-template-columns:repeat(4,1fr)}}
+.unit-grid .card{margin-top:0}
+.unit-grid table{font-size:12px}
+.unit-grid th,.unit-grid td{padding:5px 4px}
+.unit-grid td.num{white-space:normal}
+.place-grid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
+@media(min-width:760px){.place-grid{grid-template-columns:repeat(2,1fr)}}
+.place-grid .card{margin-top:0}
+.place-grid details{margin-top:6px}
+.photo-grid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
+@media(min-width:760px){.photo-grid{grid-template-columns:repeat(3,1fr)}}
+.photo-grid figure{margin:0}
+@media(min-width:900px){ol.timeline{display:grid;grid-template-columns:1fr 1fr;column-gap:34px}}
+.feed-toggle-wrap{text-align:center;margin-top:14px}
+.more-btn{border:1px solid var(--accent);background:var(--surface);color:var(--accent);border-radius:999px;padding:8px 24px;font-size:14px;font-weight:600;cursor:pointer;min-height:40px}
 `;
 
 function chipForStatus(status: string): string {
@@ -534,9 +556,12 @@ export function buildStaticSiteHtml(
   const refChange = pctChange(prices.firstOpenAvg, prices.currentRef);
 
   const feedCats = ["全部", ...Array.from(new Set(data.feedItems.map((i) => i.category)))];
+  /* Feed collapse: items past the first 8 render hidden; the page
+     script's applyFeed() owns visibility from load on (it also folds
+     the category filter into the same rule). */
   const feedHtml = data.feedItems
     .map(
-      (it) => `<article class="card${it.freshness === "new" ? " card-fresh" : ""}" data-feed-cat="${esc(it.category)}">
+      (it, i) => `<article class="card${it.freshness === "new" ? " card-fresh" : ""}${i >= 8 ? " hidden" : ""}" data-feed-cat="${esc(it.category)}">
 <div><span class="chip chip-cat">${esc(it.category)}</span><span class="dim small">${esc(it.publishedDate ?? "日期见原文")}</span>${it.bookmarked ? '<span class="chip">★ 已收藏</span>' : ""}</div>
 <h3 style="margin-top:6px">${esc(it.title)}${it.freshness === "new" ? ` ${freshTagHtml("new")}` : ""}</h3>
 <p class="dim" style="font-size:14px">${esc(it.summary)}</p>
@@ -553,6 +578,8 @@ export function buildStaticSiteHtml(
               u.trend.map((t) => ({ label: t.stage, value: t.price })),
               "#0f5e5c",
               `${u.label}价格走势图`,
+              360,
+              176,
             )
           : `<p class="dim small">该户型尚未取证，暂无价格数据。取证备案后会补上它的走势。</p>`;
       const trendRows = u.trend
@@ -641,10 +668,13 @@ ${trendRows ? `<table><thead><tr><th>阶段</th><th>时间</th><th>口径</th><t
       return `<article class="card" data-place-cat="${esc(pl.category)}" ${idx >= 0 ? `data-place-idx="${idx}"` : ""}>
 <div class="place-row"><span class="badge badge-${statusKey(pl.status)}" aria-hidden="true">${def.glyph}</span>
 <div style="min-width:0;flex:1">
-<div><strong>${esc(pl.name)}</strong> ${freshTagHtml(placeFreshKind(pl, today))} ${chipForStatus(pl.status)}<span class="chip">${esc(def.typeLabel)}</span><span class="chip">${esc(pl.distanceText)}</span></div>
+<div><strong>${esc(pl.name)}</strong> ${freshTagHtml(placeFreshKind(pl, today))}</div>
+<p style="margin:3px 0 0">${chipForStatus(pl.status)}<span class="small dim">${esc(def.typeLabel)} · ${esc(pl.distanceText)}</span></p>
+<details><summary>详情</summary>
 <p class="dim" style="font-size:14px">${esc(pl.description)}</p>
 <p class="small dim">${pinned ? `坐标：${pl.lat}, ${pl.lng}${pl.polygon ? ` · 含实测范围轮廓（${pl.polygon.length} 点）` : ""}` : "坐标待核实 · 暂未上图"} · <a href="${esc(pl.sourceUrl)}" target="_blank" rel="noreferrer">来源</a> · <a href="${esc(dir)}" target="_blank" rel="noopener">导航</a></p>
 ${pl.pinNote ? `<p class="small dim">图钉说明：${esc(pl.pinNote)}</p>` : ""}
+</details>
 </div></div></article>`;
     })
     .join("\n");
@@ -779,31 +809,27 @@ ${data.weather ? `<div class="weather" aria-label="项目所在地天气">
 </div>
 <p style="margin-top:10px"><span class="countdown">${days > 0 ? days : "—"}</span> 天后 · 一期预计交付（2027-06-30）</p>
 <p class="dim">已收录动态 <strong style="color:var(--text)">${data.feedCount}</strong> 条${data.lastRefreshAt ? ` · 最近一次刷新：${esc(data.lastRefreshAt)}` : ""}</p>
-<div class="grid4">
+</header>
+
+<nav class="topnav" aria-label="本页导航">
+<a href="#overview">概况</a><a href="#prices">房价</a><a href="#map">地图配套</a><a href="#feed">动态</a><a href="#review">评价</a>
+</nav>
+
+<section id="overview" aria-label="项目概况">
+<h2>项目概况</h2>
+<div class="metrics">
 <div><div class="v">177 米</div><div class="k">地铁 4 号线工业四路站</div></div>
 <div><div class="v">1.5 公里</div><div class="k">武汉站（高铁）</div></div>
 <div><div class="v">700 米</div><div class="k">东湖</div></div>
 <div><div class="v">493 米</div><div class="k">武汉小学华侨城分校</div></div>
 </div>
 <p class="small dim">距离均为公开资料直线距离参考，实际通行以路况与官方测量为准。</p>
-<nav class="toc" aria-label="本页目录">
-<a href="#feed">最新动态</a><a href="#prices">房价走势</a><a href="#map">周边地图 · 配套全图</a><a href="#timeline">时间线</a><a href="#archive">项目档案</a><a href="#photos">实地施工图</a><a href="#review">综合评价</a>
-</nav>
-</header>
-
-<section id="feed" aria-label="最新动态">
-<h2>最新动态</h2>
-<p class="dim small">共 ${data.feedItems.length} 条（按发布日期倒序）。点分类可筛选。带「新增」标记的为最近一次刷新加入的动态。</p>
-<div class="filters" role="group" aria-label="动态分类筛选">
-${feedCats.map((c, i) => `<button type="button" data-feed-filter="${esc(c)}" aria-pressed="${i === 0 ? "true" : "false"}">${esc(c)}</button>`).join("")}
-</div>
-${feedHtml || '<p class="dim">暂无动态。</p>'}
 </section>
 
 <section id="prices" aria-label="房价走势">
 <h2>房价走势</h2>
 <p class="dim" style="font-size:14px">数据截至 ${esc(prices.asOf)}。先分清口径：<strong>备案价</strong>是房管部门备案价、<strong>在售价</strong>是售楼处报价、<strong>成交价</strong>是实际网签统计、<strong>挂牌价</strong>是二手房源报价——四者不能直接混比，每处都标了口径。</p>
-<div class="grid4">
+<div class="metrics">
 <div><div class="v">${fmt(prices.currentRef)} <span class="small dim">元/㎡</span></div><div class="k">天荟当前参考均价</div><div class="small dim">${esc(prices.currentRefNote)}；较首开 ${refChange}</div></div>
 <div><div class="v">${fmt(prices.firstOpenAvg)} <span class="small dim">元/㎡</span></div><div class="k">天荟首开均价</div><div class="small dim">2025-07-11 首开 · 销售口径</div></div>
 <div><div class="v">${fmt(prices.fourRoomDealAvg)} <span class="small dim">元/㎡</span></div><div class="k">天荟四房成交均价</div><div class="small dim">2026-09 克而瑞四房榜 · 45 套成交口径</div></div>
@@ -811,7 +837,9 @@ ${feedHtml || '<p class="dim">暂无动态。</p>'}
 </div>
 
 <h3>分户型走势</h3>
+<div class="unit-grid">
 ${unitCards}
+</div>
 
 <h3>各户型备案价对比</h3>
 <p class="dim small">2025-07 首次取证（武房开预售〔2025〕193 号）备案均价，元/㎡。</p>
@@ -856,7 +884,19 @@ ${pinPlotSvg(pins)}
 <div class="filters" role="group" aria-label="配套分类筛选">
 ${placeCats.map((c, i) => `<button type="button" data-place-filter="${esc(c)}" aria-pressed="${i === 0 ? "true" : "false"}">${esc(c)}</button>`).join("")}
 </div>
+<div class="place-grid">
 ${placeRows}
+</div>
+</section>
+
+<section id="feed" aria-label="最新动态">
+<h2>最新动态</h2>
+<p class="dim small">共 ${data.feedItems.length} 条（按发布日期倒序，默认显示最近 8 条，其余可展开查看）。点分类可筛选。带「新增」标记的为最近一次刷新加入的动态。</p>
+<div class="filters" role="group" aria-label="动态分类筛选">
+${feedCats.map((c, i) => `<button type="button" data-feed-filter="${esc(c)}" aria-pressed="${i === 0 ? "true" : "false"}">${esc(c)}</button>`).join("")}
+</div>
+${feedHtml || '<p class="dim">暂无动态。</p>'}
+${data.feedItems.length > 8 ? `<div class="feed-toggle-wrap"><button type="button" class="more-btn" id="feed-toggle" aria-expanded="false">展开全部（共 ${data.feedItems.length} 条）</button></div>` : ""}
 </section>
 
 <section id="timeline" aria-label="片区大事时间线">
@@ -876,7 +916,9 @@ ${timelineHtml}
 <section id="photos" aria-label="实地施工图">
 <h2>实地施工图</h2>
 <p class="dim small">最新一期：${esc(data.sitePhotos.dateText)} · 来源：${esc(data.sitePhotos.sourceName)}现场观摩报道（配图为工地实拍，非效果图）。</p>
+<div class="photo-grid">
 ${photosHtml}
+</div>
 <p class="dim" style="font-size:14px">${esc(data.sitePhotos.progressNote)}</p>
 <p class="small dim">原图来源：<a href="${esc(data.sitePhotos.sourceUrl)}" target="_blank" rel="noreferrer">${esc(data.sitePhotos.sourceName)}报道</a>。</p>
 </section>
@@ -895,21 +937,47 @@ ${evalHtml}
 ${mapLibJsTag}
 <script>
 var PIN_DATA = ${pinDataJson};
-function bindFilter(attr, itemAttr) {
-  var btns = document.querySelectorAll("[" + attr + "]");
-  btns.forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      btns.forEach(function (b) { b.setAttribute("aria-pressed", "false"); });
-      btn.setAttribute("aria-pressed", "true");
-      var cat = btn.getAttribute(attr);
-      document.querySelectorAll("[" + itemAttr + "]").forEach(function (el) {
-        var show = cat === "全部" || el.getAttribute(itemAttr) === cat;
-        el.classList.toggle("hidden", !show);
-      });
-    });
+/* Feed: category filter + collapse in one rule — collapsed shows only
+   the first FEED_PAGE matching items; the toggle button expands all. */
+var FEED_PAGE = 8;
+var feedState = { cat: "全部", expanded: false };
+function applyFeed() {
+  var matchCount = 0;
+  var shownCount = 0;
+  document.querySelectorAll("[data-feed-cat]").forEach(function (el) {
+    var match = feedState.cat === "全部" || el.getAttribute("data-feed-cat") === feedState.cat;
+    var show = false;
+    if (match) {
+      matchCount++;
+      show = feedState.expanded || shownCount < FEED_PAGE;
+      if (show) shownCount++;
+    }
+    el.classList.toggle("hidden", !show);
+  });
+  var btn = document.getElementById("feed-toggle");
+  if (btn) {
+    btn.classList.toggle("hidden", matchCount <= FEED_PAGE);
+    btn.setAttribute("aria-expanded", feedState.expanded ? "true" : "false");
+    btn.textContent = feedState.expanded ? "收起" : "展开全部（共 " + matchCount + " 条）";
+  }
+}
+document.querySelectorAll("[data-feed-filter]").forEach(function (btn) {
+  btn.addEventListener("click", function () {
+    document.querySelectorAll("[data-feed-filter]").forEach(function (b) { b.setAttribute("aria-pressed", "false"); });
+    btn.setAttribute("aria-pressed", "true");
+    feedState.cat = btn.getAttribute("data-feed-filter");
+    feedState.expanded = false;
+    applyFeed();
+  });
+});
+var feedToggleBtn = document.getElementById("feed-toggle");
+if (feedToggleBtn) {
+  feedToggleBtn.addEventListener("click", function () {
+    feedState.expanded = !feedState.expanded;
+    applyFeed();
   });
 }
-bindFilter("data-feed-filter", "data-feed-cat");
+applyFeed();
 (function () {
   var btns = document.querySelectorAll("[data-place-filter]");
   btns.forEach(function (btn) {
@@ -948,7 +1016,7 @@ document.querySelectorAll("[data-pin-idx]").forEach(function (el) {
 });
 document.querySelectorAll("[data-place-idx]").forEach(function (el) {
   el.addEventListener("click", function (e) {
-    if (e.target && e.target.closest && e.target.closest("a")) return;
+    if (e.target && e.target.closest && e.target.closest("a, summary")) return;
     var idx = Number(el.getAttribute("data-place-idx"));
     if (mapReady) {
       var wrap = document.getElementById("ml-map");
@@ -1150,7 +1218,7 @@ export function buildStaticReadme(data: StaticSiteData): string {
 本文件夹是一个自包含的只读静态网站，由「华侨城天荟周边生活信息」空间导出。
 
 - 数据快照时间：${data.snapshotText}（${data.snapshotAt}，北京时间）
-- 内容：速览、最新动态（${data.feedItems.length} 条）、房价走势与分户型、周边配套地图与全部图钉数据（${data.places.length} 处配套）、片区时间线、项目档案、实地施工图
+- 内容：项目概况、房价走势与分户型、周边配套地图与全部图钉数据（${data.places.length} 处配套）、最新动态（${data.feedItems.length} 条）、片区时间线、项目档案、实地施工图、综合评价
 - 形式：只有文本文件；图片已以 base64 内嵌进 index.html，地图库 MapLibre GL 的 JS 与 CSS 也已内嵌进 index.html，页面自包含、不依赖任何后端接口或外部 CDN（本地 file:// 打开也能用）。唯一的在线依赖是地图底图：高德（AutoNavi）瓦片（GCJ-02，渲染时由存储的 WGS-84 坐标转换），与原空间同一套交互地图；网络不可用或 WebGL 不可用时地图自动回退为内置的图钉分布示意图，其余内容不受影响
 
 ## 部署

@@ -1,6 +1,9 @@
 name: Deploy Tianhui to HSK
 
 on:
+  push:
+    branches:
+      - main
   schedule:
     # 03:00 UTC = 11:00 Asia/Shanghai.
     - cron: '0 3 * * *'
@@ -15,7 +18,7 @@ permissions: {}
 
 concurrency:
   group: tianhui-hsk-production
-  cancel-in-progress: false
+  queue: max
 
 jobs:
   deploy:
@@ -34,6 +37,16 @@ jobs:
           FORCE_DEPLOY: '${{ inputs.force_deploy || false }}'
         shell: bash
         run: |
+          if [[ "$FORCE_DEPLOY" != "true" ]]; then
+            main_sha=$(GIT_TERMINAL_PROMPT=0 timeout 30s git ls-remote --exit-code \
+              "https://github.com/$GITHUB_REPOSITORY.git" refs/heads/main | cut -f1)
+            if [[ "$GITHUB_SHA" != "$main_sha" ]]; then
+              echo 'needs_update=false' >> "$GITHUB_OUTPUT"
+              echo 'The workflow snapshot is no longer the tip of main; skipping deployment.'
+              exit 0
+            fi
+          fi
+
           dir="$RUNNER_TEMP/tianhui-hsk"
           mkdir -p "$dir"
           curl --fail --silent --show-error --retry 2 --connect-timeout 10 --max-time 45 \
@@ -48,15 +61,21 @@ jobs:
           }
           NODE
 
-          if [[ "$FORCE_DEPLOY" != "true" ]] &&
-             curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
-               --header 'Cache-Control: no-cache' "$HSK_PUBLIC_URL" --output "$dir/current.html" &&
-             cmp -s "$dir/index.html" "$dir/current.html"; then
-            echo 'needs_update=false' >> "$GITHUB_OUTPUT"
-            echo 'Hosted HTML is already current.'
-          else
-            echo 'needs_update=true' >> "$GITHUB_OUTPUT"
+          if [[ "$FORCE_DEPLOY" != "true" ]]; then
+            status=$(curl --fail --silent --show-error --retry 2 --connect-timeout 10 --max-time 30 \
+              --header 'Cache-Control: no-cache' --write-out '%{http_code}' \
+              "$HSK_PUBLIC_URL" --output "$dir/current.html")
+            if [[ "$status" != "200" ]]; then
+              echo "::error::Expected HTTP 200 from the current HSK page, got $status."
+              exit 1
+            fi
+            if cmp -s "$dir/index.html" "$dir/current.html"; then
+              echo 'needs_update=false' >> "$GITHUB_OUTPUT"
+              echo 'Hosted HTML is already current.'
+              exit 0
+            fi
           fi
+          echo 'needs_update=true' >> "$GITHUB_OUTPUT"
 
       - name: Prepare the HSK CLI
         if: steps.snapshot.outputs.needs_update == 'true'

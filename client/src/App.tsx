@@ -14,6 +14,10 @@ XAxis,
 YAxis,
 } from "recharts";
 import { api, type ApiResponse } from "./api";
+import { actionFields } from "@hatch/space-sdk/fields" with { type: "macro" };
+import type { Actions } from "../../server/src/actions";
+
+const FIELDS = actionFields<typeof Actions>();
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 // MapLibre spawns a module worker from a URL, but its worker ships as a
@@ -1544,12 +1548,14 @@ function StaticExportSection() {
 function NotesSection() {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
+  const [draftError, setDraftError] = useState("");
   const notes = useQuery({ queryKey: ["notes"], queryFn: () => api.listNotes({}) });
 
   const add = useMutation({
     mutationFn: async (text: string) => await api.addNote({ text }),
     onSuccess: () => {
       setDraft("");
+      setDraftError("");
       void queryClient.invalidateQueries({ queryKey: ["notes"] });
     },
   });
@@ -1561,7 +1567,12 @@ function NotesSection() {
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     const text = draft.trim();
-    if (text) add.mutate(text);
+    if (!text) {
+      setDraftError("笔记内容不能为空，先写点内容再添加。");
+      return;
+    }
+    setDraftError("");
+    add.mutate(text);
   };
 
   return (
@@ -1572,10 +1583,15 @@ function NotesSection() {
         <label htmlFor="note-input" className="sr-only">写一条跟踪笔记</label>
         <input
           id="note-input"
+          {...FIELDS.addNote.text}
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            if (draftError) setDraftError("");
+          }}
           placeholder="例如：周末去看了工地，3# 楼已建到 20 层…"
-          maxLength={500}
+          aria-invalid={draftError ? true : undefined}
+          aria-describedby={draftError ? "note-input-error" : undefined}
           className="min-w-0 flex-1 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)]"
         />
         <button
@@ -1587,6 +1603,11 @@ function NotesSection() {
           添加
         </button>
       </form>
+      {draftError && (
+        <p id="note-input-error" role="alert" className="mt-2 text-sm text-[var(--brick)]">
+          {draftError}
+        </p>
+      )}
       {notes.data && notes.data.notes.length === 0 && (
         <p className="mt-4 text-sm text-[var(--dim)]">还没有笔记。</p>
       )}

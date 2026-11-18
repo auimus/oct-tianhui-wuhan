@@ -1057,9 +1057,11 @@ function syncMapFilter(cat) {
   var wrap = document.getElementById("ml-map");
   var fallback = document.getElementById("map-fallback");
   if (!wrap || !window.maplibregl) return;
-  var supported = false;
-  try { supported = maplibregl.supported(); } catch (e) { supported = false; }
-  if (!supported) return;
+  /* No capability pre-check: the vendored MapLibre GL JS 4.7.1 exports
+     no supported-check function, so the old guard's call threw a
+     TypeError that was swallowed and the map never initialized (no tile
+     requests at all). Construct the map directly; a real failure lands
+     in the catch below, is logged, and leaves the fallback in place. */
   var map;
   try {
     map = new maplibregl.Map({
@@ -1091,7 +1093,10 @@ function syncMapFilter(cat) {
         "AttributionControl.ToggleAttribution": "地图信息"
       }
     });
-  } catch (e) { return; }
+  } catch (e) {
+    console.error("[天荟静态站] 交互地图初始化失败，已回退为图钉示意图：", e);
+    return;
+  }
   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
   var popup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, offset: 20, maxWidth: "320px", className: "th-map-popup" });
   mlPopup = popup;

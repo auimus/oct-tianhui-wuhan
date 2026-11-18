@@ -1,0 +1,831 @@
+/* Pure HTML builder for the self-contained static-site snapshot.
+   No SDK / fs imports: server/src/privileged.ts (runtime export action)
+   and scripts/generate-static-site.ts (local generation) both feed it
+   the same data + base64 images and write out the same files, so the
+   exported static site always matches the live artifact's content. */
+
+export interface StaticPlace {
+  name: string;
+  category: string;
+  distanceText: string;
+  distanceM: number;
+  status: string;
+  description: string;
+  sourceUrl: string;
+  lat: number | null;
+  lng: number | null;
+  polygon: [number, number][] | null;
+  pinNote: string | null;
+}
+
+export interface StaticFeedItem {
+  id: number;
+  title: string;
+  category: string;
+  summary: string;
+  sourceName: string;
+  sourceUrl: string;
+  publishedDate: string | null;
+  fetchedAt: string;
+  bookmarked: boolean;
+}
+
+export interface StaticProject {
+  name: string;
+  address: string;
+  district: string;
+  developer: string;
+  builder: string;
+  property: string;
+  landParcel: string;
+  landDeal: string;
+  landArea: string;
+  gfa: string;
+  far: string;
+  greenRate: string;
+  units: string;
+  parking: string;
+  product: string;
+  phase1: string;
+  phase2: string;
+  delivery: string;
+  firstOpen: string;
+  boundaries: string;
+  caveats: string;
+  sourceUrls: string[];
+}
+
+export interface StaticMilestone {
+  dateText: string;
+  title: string;
+  description: string;
+  category: string;
+  future: boolean;
+  sourceUrl: string;
+}
+
+export interface StaticUnitType {
+  id: string;
+  label: string;
+  shortLabel: string;
+  area: number;
+  rooms: string;
+  building: string;
+  efficiency: string;
+  filingAvg: number | null;
+  filingNote: string;
+  saleTotalFromWan: number | null;
+  trend: { stage: string; dateText: string; price: number; kind: string }[];
+  note: string;
+}
+
+export interface StaticPrices {
+  asOf: string;
+  currentRef: number;
+  currentRefNote: string;
+  firstOpenAvg: number;
+  onSaleFromAvg: number;
+  fourRoomDealAvg: number;
+  unitTypes: StaticUnitType[];
+  projectTrend: { stage: string; dateText: string; asking: number | null; deal: number | null }[];
+  hongshanMonthly2025: { month: string; price: number }[];
+  hongshanYearAvg2025: number;
+  yangchunhuListing: { month: string; price: number; approx: boolean }[];
+  yangchunhuListingNote: string;
+  sectorDealAvg: number;
+  sectorDealNote: string;
+  neighbors: { name: string; listing: number; deal: number }[];
+  market: { label: string; value: number; dateText: string; note: string }[];
+  sources: { name: string; url: string }[];
+}
+
+export interface StaticProjectPin {
+  label: string;
+  category: string;
+  lat: number;
+  lng: number;
+  status: string;
+  note: string;
+  pinNote: string;
+  polygon: [number, number][];
+}
+
+export interface StaticSitePhotos {
+  dateText: string;
+  sourceName: string;
+  sourceUrl: string;
+  progressNote: string;
+  photos: { key: string; caption: string; alt: string }[];
+}
+
+export interface StaticSiteData {
+  snapshotAt: string;
+  snapshotText: string;
+  project: StaticProject;
+  places: StaticPlace[];
+  milestones: StaticMilestone[];
+  prices: StaticPrices;
+  projectPin: StaticProjectPin;
+  sitePhotos: StaticSitePhotos;
+  feedItems: StaticFeedItem[];
+  feedCount: number;
+  bookmarkCount: number;
+  lastRefreshAt: string | null;
+}
+
+/** Image data URIs keyed by asset name; null when the file was missing. */
+export type StaticImages = {
+  mapStatic: string | null;
+  aerial: string | null;
+  visit: string | null;
+  sample: string | null;
+};
+
+export function esc(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function fmt(n: number): string {
+  return n.toLocaleString("zh-CN");
+}
+
+function pctChange(from: number, to: number): string {
+  const v = ((to - from) / from) * 100;
+  return `${v > 0 ? "+" : ""}${v.toFixed(1)}%`;
+}
+
+function statusKey(status: string): "open" | "building" | "planned" {
+  if (status === "在建") return "building";
+  if (status === "规划中") return "planned";
+  return "open";
+}
+
+const STATUS_COLORS = { open: "#059669", building: "#d97706", planned: "#64748b" } as const;
+
+/* Same type->glyph mapping as the live map (App.tsx mapIconFor). */
+function iconFor(category: string, label: string): { glyph: string; typeLabel: string } {
+  if (category === "项目") return { glyph: "🏠", typeLabel: "本项目" };
+  if (label.includes("武汉站（高铁）")) return { glyph: "🚄", typeLabel: "高铁站" };
+  if (label.includes("公交")) return { glyph: "🚌", typeLabel: "公交站" };
+  if (label.includes("大道")) return { glyph: "🛣️", typeLabel: "主干道" };
+  if (category === "交通") return { glyph: "🚇", typeLabel: "地铁站" };
+  if (category === "教育") return { glyph: "🎓", typeLabel: "学校" };
+  if (label.includes("社区商业")) return { glyph: "🏪", typeLabel: "社区商业" };
+  if (category === "商业") return { glyph: "🛍️", typeLabel: "购物中心" };
+  if (category === "医疗") return { glyph: "🏥", typeLabel: "医院" };
+  if (label.includes("欢乐谷")) return { glyph: "🎡", typeLabel: "主题乐园" };
+  if (label.includes("湖")) return { glyph: "🌊", typeLabel: "湖泊公园" };
+  if (category === "生态文旅") return { glyph: "🌳", typeLabel: "公园绿地" };
+  return { glyph: "📍", typeLabel: category };
+}
+
+function lineChartSvg(
+  points: { label: string; value: number }[],
+  color: string,
+  ariaLabel: string,
+): string {
+  if (points.length === 0) return "";
+  const W = 720;
+  const H = 190;
+  const padL = 8;
+  const padR = 8;
+  const padT = 26;
+  const padB = 26;
+  const values = points.map((p) => p.value);
+  let min = Math.min(...values);
+  let max = Math.max(...values);
+  if (min === max) {
+    min -= 500;
+    max += 500;
+  }
+  const span = max - min;
+  min -= span * 0.12;
+  max += span * 0.12;
+  const x = (i: number) =>
+    points.length === 1 ? W / 2 : padL + (i * (W - padL - padR)) / (points.length - 1);
+  const y = (v: number) => padT + (1 - (v - min) / (max - min)) * (H - padT - padB);
+  const coords = points.map((p, i) => `${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(" ");
+  const dots = points
+    .map(
+      (p, i) =>
+        `<circle cx="${x(i).toFixed(1)}" cy="${y(p.value).toFixed(1)}" r="3.5" fill="${color}"/>` +
+        `<text x="${x(i).toFixed(1)}" y="${(y(p.value) - 8).toFixed(1)}" text-anchor="middle" class="svg-val">${fmt(p.value)}</text>` +
+        `<text x="${x(i).toFixed(1)}" y="${H - 6}" text-anchor="middle" class="svg-lab">${esc(p.label)}</text>`,
+    )
+    .join("");
+  const line =
+    points.length > 1
+      ? `<polyline points="${coords}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`
+      : "";
+  return `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="${esc(ariaLabel)}">${line}${dots}</svg>`;
+}
+
+function barChartSvg(
+  items: { label: string; value: number }[],
+  color: string,
+  ariaLabel: string,
+): string {
+  if (items.length === 0) return "";
+  const W = 720;
+  const H = 190;
+  const padT = 26;
+  const padB = 26;
+  const max = Math.max(...items.map((i) => i.value)) * 1.12;
+  const slot = W / items.length;
+  const barW = Math.min(64, slot * 0.55);
+  const bars = items
+    .map((it, i) => {
+      const h = (it.value / max) * (H - padT - padB);
+      const bx = slot * i + (slot - barW) / 2;
+      const by = H - padB - h;
+      return (
+        `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW}" height="${h.toFixed(1)}" rx="4" fill="${color}"/>` +
+        `<text x="${(slot * i + slot / 2).toFixed(1)}" y="${(by - 7).toFixed(1)}" text-anchor="middle" class="svg-val">${fmt(it.value)}</text>` +
+        `<text x="${(slot * i + slot / 2).toFixed(1)}" y="${H - 6}" text-anchor="middle" class="svg-lab">${esc(it.label)}</text>`
+      );
+    })
+    .join("");
+  return `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="${esc(ariaLabel)}">${bars}</svg>`;
+}
+
+type Pin = {
+  key: string;
+  label: string;
+  category: string;
+  status: string;
+  note: string;
+  pinNote: string | null;
+  distanceText: string | null;
+  lat: number;
+  lng: number;
+  polygon: [number, number][] | null;
+  sourceUrl: string | null;
+};
+
+function collectPins(data: StaticSiteData): Pin[] {
+  const pins: Pin[] = [
+    {
+      key: "__project",
+      label: data.projectPin.label,
+      category: data.projectPin.category,
+      status: data.projectPin.status,
+      note: data.projectPin.note,
+      pinNote: data.projectPin.pinNote,
+      distanceText: null,
+      lat: data.projectPin.lat,
+      lng: data.projectPin.lng,
+      polygon: data.projectPin.polygon,
+      sourceUrl: null,
+    },
+  ];
+  for (const p of data.places) {
+    if (p.lat === null || p.lng === null) continue;
+    pins.push({
+      key: p.name,
+      label: p.name,
+      category: p.category,
+      status: p.status,
+      note: p.description,
+      pinNote: p.pinNote,
+      distanceText: p.distanceText,
+      lat: p.lat,
+      lng: p.lng,
+      polygon: p.polygon,
+      sourceUrl: p.sourceUrl,
+    });
+  }
+  return pins;
+}
+
+function pinPlotSvg(pins: Pin[]): string {
+  const W = 720;
+  const H = 400;
+  const pad = 26;
+  const lngs = pins.map((p) => p.lng);
+  const lats = pins.map((p) => p.lat);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const x = (lng: number) => pad + ((lng - minLng) / (maxLng - minLng || 1)) * (W - pad * 2);
+  const y = (lat: number) => H - pad - ((lat - minLat) / (maxLat - minLat || 1)) * (H - pad * 2);
+  const polys = pins
+    .filter((p) => p.polygon !== null)
+    .map((p) => {
+      const pts = (p.polygon as [number, number][])
+        .map(([lng, lat]) => `${x(lng).toFixed(1)},${y(lat).toFixed(1)}`)
+        .join(" ");
+      const c = STATUS_COLORS[statusKey(p.status)];
+      return `<polygon points="${pts}" fill="${c}" fill-opacity="0.13" stroke="${c}" stroke-width="1.6" stroke-dasharray="5 4" data-poly-cat="${esc(p.category)}"/>`;
+    })
+    .join("");
+  const dots = pins
+    .map((p, i) => {
+      const c = STATUS_COLORS[statusKey(p.status)];
+      const def = iconFor(p.category, p.label);
+      return (
+        `<g class="pin" data-pin-idx="${i}" data-pin-cat="${esc(p.category)}" tabindex="0" role="button" aria-label="查看地点：${esc(p.label)}" transform="translate(${x(p.lng).toFixed(1)},${y(p.lat).toFixed(1)})">` +
+        `<circle r="12" fill="${c}" fill-opacity="0.16" stroke="${c}" stroke-width="2.4"/>` +
+        `<text text-anchor="middle" dy="4.5" font-size="11">${def.glyph}</text></g>`
+      );
+    })
+    .join("");
+  return `<svg viewBox="0 0 ${W} ${H}" class="pinplot" role="group" aria-label="周边配套图钉分布示意图（按经纬度投影，点击图钉查看详情）">${polys}${dots}</svg>`;
+}
+
+const CSS = `
+:root{color-scheme:light dark;--bg:#f7f5f0;--surface:#fffdf8;--surface-alt:#efeae0;--text:#1c2321;--dim:#5c6b68;--border:#ddd6c8;--accent:#0f5e5c;--accent-soft:#e3efec;--amber:#b97a14;--amber-soft:#faf0dc;--brick:#b84a2b;--brick-soft:#f9e9e3;--radius:10px}
+@media (prefers-color-scheme:dark){:root{--bg:#121614;--surface:#1b201e;--surface-alt:#242a28;--text:#ece9e2;--dim:#9aa8a4;--border:#333b38;--accent:#4fb8b0;--accent-soft:#1d3230;--amber:#e5a83e;--amber-soft:#38300f;--brick:#e07a56;--brick-soft:#3a241c}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Noto Sans SC",system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;font-size:16px;line-height:1.65}
+main{max-width:860px;margin:0 auto;padding:20px 16px 56px}
+h1{font-size:34px;line-height:1.25;margin:6px 0 2px}
+h2{font-size:24px;margin:38px 0 6px;padding-top:10px}
+h3{font-size:17px;margin:22px 0 4px}
+p{margin:6px 0}
+a{color:var(--accent)}
+.dim{color:var(--dim)}
+.small{font-size:13px}
+.snapshot{border:2px solid var(--brick);background:var(--brick-soft);border-radius:var(--radius);padding:12px 16px;margin-bottom:18px}
+.snapshot strong{color:var(--brick)}
+nav.toc{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
+nav.toc a{border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:4px 12px;text-decoration:none;font-size:14px;color:var(--text)}
+.kicker{font-size:12px;letter-spacing:.18em;color:var(--accent);font-weight:600}
+.countdown{font-size:30px;font-weight:800;color:var(--brick)}
+.grid4{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-top:12px}
+@media(min-width:640px){.grid4{grid-template-columns:repeat(4,1fr)}}
+.grid4>div{background:var(--surface);padding:10px 12px}
+.grid4 .v{font-size:20px;font-weight:800;color:var(--accent)}
+.grid4 .k{font-size:12px;color:var(--dim)}
+.card{border:1px solid var(--border);background:var(--surface);border-radius:var(--radius);padding:14px 16px;margin-top:10px}
+.chip{display:inline-block;border-radius:999px;padding:0 9px;font-size:12px;line-height:1.7;background:var(--surface-alt);color:var(--dim);margin-right:6px}
+.chip-cat{background:var(--accent-soft);color:var(--accent)}
+.chip-open{background:#ddf3e9;color:#047857}
+.chip-building{background:var(--amber-soft);color:var(--amber)}
+.chip-planned{background:var(--surface-alt);color:var(--dim)}
+@media (prefers-color-scheme:dark){.chip-open{background:#173f31;color:#4fb8b0}}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px}
+.filters button{border:1px solid var(--border);background:var(--surface);color:var(--dim);border-radius:999px;padding:5px 14px;font-size:14px;cursor:pointer;min-height:32px}
+.filters button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+table{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}
+th,td{border-bottom:1px solid var(--border);padding:7px 8px;text-align:left;vertical-align:top}
+thead th{background:var(--surface-alt);color:var(--dim);font-weight:600;font-size:13px}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+dl.archive{display:grid;grid-template-columns:96px 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface);margin-top:10px}
+dl.archive dt,dl.archive dd{margin:0;padding:9px 12px;border-bottom:1px solid var(--border);font-size:14px}
+dl.archive dt{color:var(--dim);font-weight:600}
+.caveat{border:1px solid var(--brick);background:var(--brick-soft);border-radius:var(--radius);padding:12px 16px;margin-top:12px}
+ol.timeline{list-style:none;margin:10px 0 0;padding:0}
+ol.timeline li{border-left:3px solid var(--accent);padding:2px 0 14px 14px;position:relative}
+ol.timeline li.future{border-left-color:var(--brick)}
+ol.timeline .d{font-weight:700;font-variant-numeric:tabular-nums}
+figure{margin:12px 0}
+figure img{width:100%;height:auto;border:1px solid var(--border);border-radius:var(--radius);display:block}
+figcaption{font-size:13px;color:var(--dim);margin-top:5px}
+.chart{width:100%;height:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+.svg-val{font-size:12px;font-weight:700;fill:var(--text)}
+.svg-lab{font-size:11px;fill:var(--dim)}
+.pinplot{width:100%;height:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+.pin{cursor:pointer}
+.pin:focus circle{stroke-width:4}
+.pin.selected circle{stroke-width:4}
+.badge{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:999px;border:2px solid var(--accent);background:var(--surface-alt);font-size:13px;flex-shrink:0}
+.badge-open{border-color:#059669;background:#ddf3e9}
+.badge-building{border-color:#d97706;background:#fdf0dc}
+.badge-planned{border-color:#64748b;background:#e9edf1}
+@media (prefers-color-scheme:dark){.badge-open{background:#173f31}.badge-building{background:#4d3a14}.badge-planned{background:#2e3742}}
+.place-row{display:flex;gap:10px}
+footer{margin-top:44px;border-top:1px solid var(--border);padding-top:14px;font-size:13px;color:var(--dim)}
+details{margin-top:8px}
+summary{cursor:pointer;color:var(--accent);font-size:14px}
+.hidden{display:none!important}
+`;
+
+function chipForStatus(status: string): string {
+  const k = statusKey(status);
+  return `<span class="chip chip-${k}">● ${esc(status)}</span>`;
+}
+
+export function buildStaticSiteHtml(data: StaticSiteData, images: StaticImages): string {
+  const p = data.project;
+  const prices = data.prices;
+  const pins = collectPins(data);
+  const snapDate = new Date(data.snapshotAt);
+  const delivery = new Date(2027, 5, 30);
+  const today = new Date(snapDate.getFullYear(), snapDate.getMonth(), snapDate.getDate());
+  const days = Math.round((delivery.getTime() - today.getTime()) / 86400000);
+  const refChange = pctChange(prices.firstOpenAvg, prices.currentRef);
+
+  const feedCats = ["全部", ...Array.from(new Set(data.feedItems.map((i) => i.category)))];
+  const feedHtml = data.feedItems
+    .map(
+      (it) => `<article class="card" data-feed-cat="${esc(it.category)}">
+<div><span class="chip chip-cat">${esc(it.category)}</span><span class="dim small">${esc(it.publishedDate ?? "日期见原文")}</span>${it.bookmarked ? '<span class="chip">★ 已收藏</span>' : ""}</div>
+<h3 style="margin-top:6px">${esc(it.title)}</h3>
+<p class="dim" style="font-size:14px">${esc(it.summary)}</p>
+<p class="small dim">来源：${esc(it.sourceName)} · <a href="${esc(it.sourceUrl)}" target="_blank" rel="noreferrer">查看原文</a></p>
+</article>`,
+    )
+    .join("\n");
+
+  const unitCards = prices.unitTypes
+    .map((u) => {
+      const chart =
+        u.trend.length > 0
+          ? lineChartSvg(
+              u.trend.map((t) => ({ label: t.stage, value: t.price })),
+              "#0f5e5c",
+              `${u.label}价格走势图`,
+            )
+          : `<p class="dim small">该户型尚未取证，暂无价格数据。取证备案后会补上它的走势。</p>`;
+      const trendRows = u.trend
+        .map(
+          (t) =>
+            `<tr><td>${esc(t.stage)}</td><td>${esc(t.dateText)}</td><td>${esc(t.kind)}口径</td><td class="num">${fmt(t.price)} 元/㎡</td></tr>`,
+        )
+        .join("");
+      const filing =
+        u.filingAvg !== null
+          ? `${fmt(u.filingAvg)} 元/㎡ · 按备案均价 × 建面估算总价约 ${((u.filingAvg * u.area) / 10000).toFixed(1)} 万元（${esc(u.filingNote)}）`
+          : esc(u.filingNote);
+      const sale =
+        u.saleTotalFromWan !== null
+          ? `约 ${u.saleTotalFromWan} 万元起（售楼处口径）`
+          : "暂无公开数据，以一房一价公示为准";
+      return `<article class="card">
+<h3 style="margin-top:2px">${esc(u.label)}</h3>
+<p class="dim small">${esc(u.building)} · ${esc(u.rooms)} · 得房率 ${esc(u.efficiency)}</p>
+${chart}
+${trendRows ? `<table><thead><tr><th>阶段</th><th>时间</th><th>口径</th><th class="num">单价</th></tr></thead><tbody>${trendRows}</tbody></table>` : ""}
+<p class="small"><strong>备案价：</strong>${filing}<br/><strong>在售总价：</strong>${sale}</p>
+<p class="dim" style="font-size:14px">${esc(u.note)}</p>
+</article>`;
+    })
+    .join("\n");
+
+  const filingBar = barChartSvg(
+    prices.unitTypes
+      .filter((u) => u.filingAvg !== null)
+      .map((u) => ({ label: u.shortLabel, value: u.filingAvg as number })),
+    "#d98e1b",
+    "各户型备案均价柱状图",
+  );
+  const projectTrendRows = prices.projectTrend
+    .map(
+      (t) =>
+        `<tr><td>${esc(t.stage)}</td><td>${esc(t.dateText)}</td><td class="num">${t.asking !== null ? fmt(t.asking) : "—"}</td><td class="num">${t.deal !== null ? fmt(t.deal) : "—"}</td></tr>`,
+    )
+    .join("");
+  const hongshanChart = lineChartSvg(
+    prices.hongshanMonthly2025.map((m) => ({ label: m.month, value: m.price })),
+    "#0f5e5c",
+    "洪山区2025年新房月度均价走势图",
+  );
+  const hongshanRows = prices.hongshanMonthly2025
+    .map((m) => `<tr><td>2025 年 ${esc(m.month)}</td><td class="num">${fmt(m.price)} 元/㎡</td></tr>`)
+    .join("");
+  const ychChart = lineChartSvg(
+    prices.yangchunhuListing.map((m) => ({ label: m.month, value: m.price })),
+    "#b84a2b",
+    "杨春湖畔二手房挂牌均价走势图",
+  );
+  const ychRows = prices.yangchunhuListing
+    .map(
+      (m) =>
+        `<tr><td>${esc(m.month)}</td><td class="num">${m.approx ? "约 " : ""}${fmt(m.price)} 元/㎡</td></tr>`,
+    )
+    .join("");
+  const neighborRows = prices.neighbors
+    .map(
+      (n) =>
+        `<tr><td>${esc(n.name)}</td><td class="num">${fmt(n.listing)}</td><td class="num">${fmt(n.deal)}</td><td class="num">${pctChange(n.listing, n.deal)}</td></tr>`,
+    )
+    .join("");
+  const marketRows = prices.market
+    .map(
+      (m) =>
+        `<tr><td>${esc(m.label)}</td><td>${esc(m.dateText)}</td><td class="num">${fmt(m.value)} 元/㎡</td><td>${esc(m.note)}</td></tr>`,
+    )
+    .join("");
+  const priceSources = prices.sources
+    .map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noreferrer">${esc(s.name)}</a>`)
+    .join("、");
+
+  const placeCats = ["全部", "交通", "商业", "教育", "医疗", "生态文旅"];
+  const sortedPlaces = [...data.places].sort((a, b) => a.distanceM - b.distanceM);
+  const placeRows = sortedPlaces
+    .map((pl) => {
+      const def = iconFor(pl.category, pl.name);
+      const idx = pins.findIndex((x) => x.key === pl.name);
+      const pinned = pl.lat !== null && pl.lng !== null;
+      const dir = pinned
+        ? `https://www.google.com/maps/dir/?api=1&destination=${pl.lat},${pl.lng}`
+        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pl.name + " 武汉市洪山区")}`;
+      return `<article class="card" data-place-cat="${esc(pl.category)}" ${idx >= 0 ? `data-place-idx="${idx}"` : ""}>
+<div class="place-row"><span class="badge badge-${statusKey(pl.status)}" aria-hidden="true">${def.glyph}</span>
+<div style="min-width:0;flex:1">
+<div><strong>${esc(pl.name)}</strong> ${chipForStatus(pl.status)}<span class="chip">${esc(def.typeLabel)}</span><span class="chip">${esc(pl.distanceText)}</span></div>
+<p class="dim" style="font-size:14px">${esc(pl.description)}</p>
+<p class="small dim">${pinned ? `坐标：${pl.lat}, ${pl.lng}${pl.polygon ? ` · 含实测范围轮廓（${pl.polygon.length} 点）` : ""}` : "坐标待核实 · 暂未上图"} · <a href="${esc(pl.sourceUrl)}" target="_blank" rel="noreferrer">来源</a> · <a href="${esc(dir)}" target="_blank" rel="noopener">导航</a></p>
+${pl.pinNote ? `<p class="small dim">图钉说明：${esc(pl.pinNote)}</p>` : ""}
+</div></div></article>`;
+    })
+    .join("\n");
+
+  const legendSeen = new Map<string, { glyph: string; typeLabel: string }>();
+  for (const pin of pins) {
+    const def = iconFor(pin.category, pin.label);
+    if (!legendSeen.has(def.typeLabel)) legendSeen.set(def.typeLabel, def);
+  }
+  const legendHtml = [...legendSeen.values()]
+    .map((d) => `<span class="chip"><span aria-hidden="true">${d.glyph}</span> ${esc(d.typeLabel)}</span>`)
+    .join(" ");
+
+  const counts = new Map<string, number>();
+  for (const pl of data.places) counts.set(pl.status, (counts.get(pl.status) ?? 0) + 1);
+
+  const timelineHtml = data.milestones
+    .map(
+      (m) => `<li class="${m.future ? "future" : ""}">
+<p style="margin:0"><span class="d">${esc(m.dateText)}</span> <span class="chip chip-cat">${esc(m.category)}</span>${m.future ? '<span class="chip">预计</span>' : ""}</p>
+<h3 style="margin:2px 0">${esc(m.title)}</h3>
+<p class="dim" style="font-size:14px;margin:2px 0">${esc(m.description)}</p>
+<p class="small" style="margin:2px 0"><a href="${esc(m.sourceUrl)}" target="_blank" rel="noreferrer">来源</a></p>
+</li>`,
+    )
+    .join("\n");
+
+  const archiveRows: [string, string][] = [
+    ["位置", `${p.address}（${p.district}）`],
+    ["四至", p.boundaries],
+    ["开发商", p.developer],
+    ["承建 / 物业", `${p.builder} / ${p.property}`],
+    ["地块", p.landParcel],
+    ["拿地", p.landDeal],
+    ["占地 / 建面", `${p.landArea} / ${p.gfa}`],
+    ["容积率 / 绿化率", `${p.far} / ${p.greenRate}`],
+    ["户数 / 车位", `${p.units} / ${p.parking}`],
+    ["产品", p.product],
+    ["一期", p.phase1],
+    ["二期", p.phase2],
+    ["首开", p.firstOpen],
+    ["交付", p.delivery],
+  ];
+  const archiveHtml = archiveRows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
+  const archiveSources = p.sourceUrls
+    .map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noreferrer">资料 ${i + 1}</a>`)
+    .join("、");
+
+  const photoImgs: Record<string, string | null> = {
+    aerial: images.aerial,
+    visit: images.visit,
+    sample: images.sample,
+  };
+  const photosHtml = data.sitePhotos.photos
+    .map((ph) => {
+      const src = photoImgs[ph.key];
+      if (!src) return `<figure><figcaption>${esc(ph.caption)}（图片文件缺失，未能内嵌）</figcaption></figure>`;
+      return `<figure><img src="${src}" alt="${esc(ph.alt)}" loading="lazy"/><figcaption>${esc(ph.caption)}</figcaption></figure>`;
+    })
+    .join("\n");
+
+  const pinDataJson = JSON.stringify(
+    pins.map((pin) => ({
+      label: pin.label,
+      category: pin.category,
+      status: pin.status,
+      note: pin.note,
+      pinNote: pin.pinNote,
+      distanceText: pin.distanceText,
+      lat: pin.lat,
+      lng: pin.lng,
+      typeLabel: iconFor(pin.category, pin.label).typeLabel,
+      glyph: iconFor(pin.category, pin.label).glyph,
+    })),
+  ).replace(/</g, "\\u003c");
+  const snapshotJson = JSON.stringify(data).replace(/</g, "\\u003c");
+
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>华侨城·天荟周边生活信息（静态快照 ${esc(data.snapshotText)}）</title>
+<meta name="description" content="华侨城·天荟（武汉洪山区杨春湖高铁商务区）开发进展、房价走势、周边配套地图与时间线的只读静态快照，数据快照时间 ${esc(data.snapshotText)}。"/>
+<style>${CSS}</style>
+</head>
+<body>
+<main>
+<div class="snapshot" role="note">
+<strong>只读静态快照</strong> · 数据快照时间：<time datetime="${esc(data.snapshotAt)}">${esc(data.snapshotText)}</time>（北京时间）。本页由「华侨城天荟周边生活信息」空间在快照时刻的全部展示数据冻结生成，不连接任何后端、不会自动更新；笔记、收藏等交互功能在此版本中不可用。要看最新数据请回到原空间，或重新生成快照。
+</div>
+
+<header>
+<p class="kicker">武汉 · 洪山 · 杨春湖高铁商务区（东湖新城）</p>
+<h1>华侨城·天荟</h1>
+<p class="dim">${esc(p.address)} · ${esc(p.developer)}</p>
+<p style="margin-top:10px"><span class="countdown">${days > 0 ? days : "—"}</span> 天后 · 一期预计交付（2027-06-30）</p>
+<p class="dim">已收录动态 <strong style="color:var(--text)">${data.feedCount}</strong> 条${data.lastRefreshAt ? ` · 最近一次刷新：${esc(data.lastRefreshAt)}` : ""}</p>
+<div class="grid4">
+<div><div class="v">177 米</div><div class="k">地铁 4 号线工业四路站</div></div>
+<div><div class="v">1.5 公里</div><div class="k">武汉站（高铁）</div></div>
+<div><div class="v">700 米</div><div class="k">东湖</div></div>
+<div><div class="v">493 米</div><div class="k">武汉小学华侨城分校</div></div>
+</div>
+<p class="small dim">距离均为公开资料直线距离参考，实际通行以路况与官方测量为准。</p>
+<nav class="toc" aria-label="本页目录">
+<a href="#feed">最新动态</a><a href="#prices">房价走势</a><a href="#map">周边地图 · 配套全图</a><a href="#timeline">时间线</a><a href="#archive">项目档案</a><a href="#photos">实地施工图</a>
+</nav>
+</header>
+
+<section id="feed" aria-label="最新动态">
+<h2>最新动态</h2>
+<p class="dim small">快照共 ${data.feedItems.length} 条（按发布日期倒序）。点分类可筛选；收藏标记为快照时刻的状态。</p>
+<div class="filters" role="group" aria-label="动态分类筛选">
+${feedCats.map((c, i) => `<button type="button" data-feed-filter="${esc(c)}" aria-pressed="${i === 0 ? "true" : "false"}">${esc(c)}</button>`).join("")}
+</div>
+${feedHtml || '<p class="dim">快照时动态流为空。</p>'}
+</section>
+
+<section id="prices" aria-label="房价走势">
+<h2>房价走势</h2>
+<p class="dim" style="font-size:14px">数据截至 ${esc(prices.asOf)}。先分清口径：<strong>备案价</strong>是房管部门备案价、<strong>在售价</strong>是售楼处报价、<strong>成交价</strong>是实际网签统计、<strong>挂牌价</strong>是二手房源报价——四者不能直接混比，每处都标了口径。</p>
+<div class="grid4">
+<div><div class="v">${fmt(prices.currentRef)} <span class="small dim">元/㎡</span></div><div class="k">天荟当前参考均价</div><div class="small dim">${esc(prices.currentRefNote)}；较首开 ${refChange}</div></div>
+<div><div class="v">${fmt(prices.firstOpenAvg)} <span class="small dim">元/㎡</span></div><div class="k">天荟首开均价</div><div class="small dim">2025-07-11 首开 · 销售口径</div></div>
+<div><div class="v">${fmt(prices.fourRoomDealAvg)} <span class="small dim">元/㎡</span></div><div class="k">天荟四房成交均价</div><div class="small dim">2026-09 克而瑞四房榜 · 45 套成交口径</div></div>
+<div><div class="v">${fmt(prices.sectorDealAvg)} <span class="small dim">元/㎡</span></div><div class="k">杨春湖板块二手成交均价</div><div class="small dim">2026-09 · 21 个小区 107 套成交口径</div></div>
+</div>
+
+<h3>分户型走势</h3>
+${unitCards}
+
+<h3>各户型备案价对比</h3>
+<p class="dim small">2025-07 首次取证（武房开预售〔2025〕193 号）备案均价，元/㎡。</p>
+${filingBar}
+<p class="dim small">同为 128㎡，4# 小高层（10 层、一梯两户）备案价比 3# 超高层高出约 4,200 元/㎡，是低密与瞰湖资源的溢价。</p>
+
+<h3>天荟整体价格节点</h3>
+<table><thead><tr><th>节点</th><th>时间</th><th class="num">在售/参考均价（元/㎡）</th><th class="num">成交均价（元/㎡）</th></tr></thead><tbody>${projectTrendRows}</tbody></table>
+<p class="dim small">从首开 13,500 到当前平台参考 12,500，在售口径回落 ${esc(refChange)}；2026-09 四房实际成交均价 11,444 元/㎡，比参考价再低约一成——看房时以成交口径谈价更实在。</p>
+
+<h3>洪山区新房均价 · 2025 年月度</h3>
+<p class="dim small">58 爱房综合计算口径，全年均价 ${fmt(prices.hongshanYearAvg2025)} 元/㎡。洪山均价被街道口、关山等高价板块抬高，杨春湖板块明显低于全区均价。</p>
+${hongshanChart}
+<details><summary>查看月度数据表</summary><table><thead><tr><th>月份</th><th class="num">新房均价</th></tr></thead><tbody>${hongshanRows}</tbody></table></details>
+
+<h3>杨春湖畔二手房挂牌走势</h3>
+<p class="dim small">${esc(prices.yangchunhuListingNote)}</p>
+${ychChart}
+<details><summary>查看月度数据表</summary><table><thead><tr><th>月份</th><th class="num">挂牌均价</th></tr></thead><tbody>${ychRows}</tbody></table></details>
+<p class="dim small">${esc(prices.sectorDealNote)}</p>
+
+<h3>周边二手房：挂牌价 vs 成交价</h3>
+<table><thead><tr><th>小区</th><th class="num">挂牌均价（元/㎡）</th><th class="num">成交均价（元/㎡）</th><th class="num">成交低于挂牌</th></tr></thead><tbody>${neighborRows}</tbody></table>
+<p class="dim small">周边次新小区成交价普遍比挂牌价低三到四成——挂牌价只是业主要价，判断片区真实价格要看成交口径。</p>
+
+<h3>武汉 / 洪山最新市场快照</h3>
+<table><thead><tr><th>指标</th><th>时间</th><th class="num">均价</th><th>说明</th></tr></thead><tbody>${marketRows}</tbody></table>
+<p class="small dim">价格来源：${priceSources}。房价受楼层、朝向、装修与网签节奏影响波动较大，本页数据仅供跟踪参考，不构成购房建议；最终以房管部门备案与售楼处一房一价公示为准。</p>
+</section>
+
+<section id="map" aria-label="周边地图与配套">
+<h2>周边地图 · 配套全图</h2>
+<p class="dim" style="font-size:14px">图标区分类型，颜色区分状态（绿＝已运营、橙＝在建、灰＝规划中）。静态站不加载在线地图瓦片：下方先是含全部图钉的静态地图图，再是一张按真实经纬度投影的图钉分布图——点击图钉或下方条目可查看该地点详情；有实测范围的点位在分布图里以虚线画出轮廓。少数配套为按公开地址推定的近似定位，详情里的图钉说明有标注。距离为直线距离参考。</p>
+<p class="dim small">共 ${data.places.length} 处配套 · 已运营 ${counts.get("已运营") ?? 0} · 在建 ${counts.get("在建") ?? 0} · 规划中 ${counts.get("规划中") ?? 0}；其中 ${pins.length - 1} 处已上图（另含本项目图钉）。</p>
+<p>${legendHtml}</p>
+<p><span class="chip chip-open">● 已运营</span><span class="chip chip-building">● 在建</span><span class="chip chip-planned">● 规划中</span></p>
+${images.mapStatic ? `<figure><img src="${images.mapStatic}" alt="华侨城天荟周边静态地图：图钉标出本项目与周边配套（车站、学校、商场、医院、公园等）的位置" loading="lazy"/><figcaption>静态地图图（© OpenStreetMap contributors）。</figcaption></figure>` : ""}
+${pinPlotSvg(pins)}
+<div id="pin-detail" class="card" aria-live="polite"><p class="dim" style="margin:0">点击上方分布图的任意图钉，这里会显示该地点的名称、状态与说明。</p></div>
+<div class="filters" role="group" aria-label="配套分类筛选">
+${placeCats.map((c, i) => `<button type="button" data-place-filter="${esc(c)}" aria-pressed="${i === 0 ? "true" : "false"}">${esc(c)}</button>`).join("")}
+</div>
+${placeRows}
+</section>
+
+<section id="timeline" aria-label="片区大事时间线">
+<h2>片区大事 · 时间线</h2>
+<ol class="timeline">
+${timelineHtml}
+</ol>
+</section>
+
+<section id="archive" aria-label="项目档案">
+<h2>项目档案</h2>
+<dl class="archive">${archiveHtml}</dl>
+<div class="caveat"><h3 style="margin-top:0;color:var(--brick)">看房提醒（不利因素）</h3><p style="font-size:14px">${esc(p.caveats)}</p></div>
+<p class="small dim">档案来源：${archiveSources}。不同口径数字有出入处已在文中注明。</p>
+</section>
+
+<section id="photos" aria-label="实地施工图">
+<h2>实地施工图</h2>
+<p class="dim small">最新一期：${esc(data.sitePhotos.dateText)} · 来源：${esc(data.sitePhotos.sourceName)}现场观摩报道（配图为工地实拍，非效果图）。</p>
+${photosHtml}
+<p class="dim" style="font-size:14px">${esc(data.sitePhotos.progressNote)}</p>
+<p class="small dim">原图来源：<a href="${esc(data.sitePhotos.sourceUrl)}" target="_blank" rel="noreferrer">${esc(data.sitePhotos.sourceName)}报道</a>。</p>
+</section>
+
+<footer>
+<p>本页信息来自公开报道与政府公示，销售宣传口径与官方口径冲突时以官方为准；房价、划片、交付时间等请以售楼处与主管部门最新公示核实。</p>
+<p>静态快照生成时间：${esc(data.snapshotText)}（${esc(data.snapshotAt)}）。本文件夹（static-site/）为自包含静态网站：只有 index.html 与说明文件，图片已以 base64 内嵌，无需任何后端，放到 nginx、GitHub Pages 等任意静态托管即可打开。重新生成：在原空间调用 exportStaticSite 动作，或在本项目目录运行 <code>bun scripts/generate-static-site.ts</code>。</p>
+</footer>
+</main>
+<script type="application/json" id="snapshot-data">${snapshotJson}</script>
+<script>
+var PIN_DATA = ${pinDataJson};
+function bindFilter(attr, itemAttr) {
+  var btns = document.querySelectorAll("[" + attr + "]");
+  btns.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      btns.forEach(function (b) { b.setAttribute("aria-pressed", "false"); });
+      btn.setAttribute("aria-pressed", "true");
+      var cat = btn.getAttribute(attr);
+      document.querySelectorAll("[" + itemAttr + "]").forEach(function (el) {
+        var show = cat === "全部" || el.getAttribute(itemAttr) === cat;
+        el.classList.toggle("hidden", !show);
+      });
+    });
+  });
+}
+bindFilter("data-feed-filter", "data-feed-cat");
+(function () {
+  var btns = document.querySelectorAll("[data-place-filter]");
+  btns.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      btns.forEach(function (b) { b.setAttribute("aria-pressed", "false"); });
+      btn.setAttribute("aria-pressed", "true");
+      var cat = btn.getAttribute("data-place-filter");
+      document.querySelectorAll("[data-place-cat]").forEach(function (el) {
+        el.classList.toggle("hidden", !(cat === "全部" || el.getAttribute("data-place-cat") === cat));
+      });
+      document.querySelectorAll("[data-pin-cat]").forEach(function (el) {
+        el.classList.toggle("hidden", !(cat === "全部" || el.getAttribute("data-pin-cat") === cat));
+      });
+      document.querySelectorAll("[data-poly-cat]").forEach(function (el) {
+        el.classList.toggle("hidden", !(cat === "全部" || el.getAttribute("data-poly-cat") === cat));
+      });
+    });
+  });
+})();
+var detail = document.getElementById("pin-detail");
+function selectPin(idx) {
+  var d = PIN_DATA[idx];
+  if (!d || !detail) return;
+  document.querySelectorAll(".pin").forEach(function (el) { el.classList.remove("selected"); });
+  var g = document.querySelector('[data-pin-idx="' + idx + '"]');
+  if (g) g.classList.add("selected");
+  var chips = "<span class='chip chip-cat'>" + d.typeLabel + "</span><span class='chip'>● " + d.status + "</span>" + (d.distanceText ? "<span class='chip'>" + d.distanceText + "</span>" : "");
+  detail.innerHTML = "<div><span aria-hidden='true'>" + d.glyph + "</span> <strong>" + d.label + "</strong></div><p style='margin:4px 0'>" + chips + "</p><p class='dim' style='font-size:14px'>" + d.note + "</p>" + (d.pinNote ? "<p class='small dim'>图钉说明：" + d.pinNote + "</p>" : "") + "<p class='small dim'>坐标：" + d.lat + ", " + d.lng + " · <a target='_blank' rel='noopener' href='https://www.google.com/maps/dir/?api=1&destination=" + d.lat + "," + d.lng + "'>导航到这里 →</a></p>";
+}
+document.querySelectorAll("[data-pin-idx]").forEach(function (el) {
+  var idx = Number(el.getAttribute("data-pin-idx"));
+  el.addEventListener("click", function () { selectPin(idx); });
+  el.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectPin(idx); } });
+});
+document.querySelectorAll("[data-place-idx]").forEach(function (el) {
+  el.addEventListener("click", function (e) {
+    if (e.target && e.target.closest && e.target.closest("a")) return;
+    selectPin(Number(el.getAttribute("data-place-idx")));
+    var plot = document.querySelector(".pinplot");
+    if (plot && plot.scrollIntoView) plot.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+});
+</script>
+</body>
+</html>`;
+}
+
+export function buildStaticReadme(data: StaticSiteData): string {
+  return `# 华侨城·天荟周边生活信息 — 静态站快照
+
+本文件夹是一个自包含的只读静态网站，由「华侨城天荟周边生活信息」空间导出。
+
+- 数据快照时间：${data.snapshotText}（${data.snapshotAt}，北京时间）
+- 内容：速览、最新动态（${data.feedItems.length} 条）、房价走势与分户型、周边配套地图与全部图钉数据（${data.places.length} 处配套）、片区时间线、项目档案、实地施工图
+- 形式：只有文本文件；图片已以 base64 内嵌进 index.html，不依赖任何后端接口或外部资源（外链仅为来源/导航链接，可不点）
+
+## 部署
+
+把本文件夹整体放到任意静态托管即可：
+
+- nginx：把 static-site/ 设为站点 root（或复制其中文件到现有 root）。
+- GitHub Pages：把 static-site/ 内容推到 Pages 仓库/分支根目录即可（已附 .nojekyll，避免 Jekyll 处理）。
+
+直接用浏览器打开 index.html 也能看（file:// 亦可）。
+
+## 重新生成
+
+快照不会自动更新。数据变化后重新导出一份即可覆盖本文件夹：
+
+- 在原空间（Muse）调用 exportStaticSite 动作；或
+- 在本项目目录运行：bun scripts/generate-static-site.ts
+
+静态站是只读快照：笔记、收藏等交互功能不可用（收藏标记为快照时刻的状态）。
+`;
+}

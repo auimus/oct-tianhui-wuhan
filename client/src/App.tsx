@@ -44,6 +44,45 @@ type SitePhotos = Overview["sitePhotos"];
 type Weather = NonNullable<Overview["weather"]>;
 type Evaluation = Overview["evaluation"];
 
+/* WGS-84 → GCJ-02 conversion. All stored coordinates in this artifact are
+   verified WGS-84, but the 高德 (AutoNavi) base tiles are GCJ-02, so every
+   coordinate handed to MapLibre (pins, polygon vertices, map center,
+   flyTo targets) is converted at render time only. Stored data and any
+   displayed distance/coordinate text stay in the original WGS-84. */
+const GCJ_PI = Math.PI;
+const GCJ_A = 6378245.0;
+const GCJ_EE = 0.00669342162296594323;
+
+function gcjOutOfChina(lng: number, lat: number): boolean {
+  return lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271;
+}
+function gcjTransformLat(x: number, y: number): number {
+  let ret = -100 + 2 * x + 3 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+  ret += ((20 * Math.sin(6 * x * GCJ_PI) + 20 * Math.sin(2 * x * GCJ_PI)) * 2) / 3;
+  ret += ((20 * Math.sin(y * GCJ_PI) + 40 * Math.sin((y / 3) * GCJ_PI)) * 2) / 3;
+  ret += ((160 * Math.sin((y / 12) * GCJ_PI) + 320 * Math.sin((y * GCJ_PI) / 30)) * 2) / 3;
+  return ret;
+}
+function gcjTransformLng(x: number, y: number): number {
+  let ret = 300 + x + 2 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+  ret += ((20 * Math.sin(6 * x * GCJ_PI) + 20 * Math.sin(2 * x * GCJ_PI)) * 2) / 3;
+  ret += ((20 * Math.sin(x * GCJ_PI) + 40 * Math.sin((x / 3) * GCJ_PI)) * 2) / 3;
+  ret += ((150 * Math.sin((x / 12) * GCJ_PI) + 300 * Math.sin((x / 30) * GCJ_PI)) * 2) / 3;
+  return ret;
+}
+function wgs84ToGcj02(lng: number, lat: number): [number, number] {
+  if (gcjOutOfChina(lng, lat)) return [lng, lat];
+  let dLat = gcjTransformLat(lng - 105, lat - 35);
+  let dLng = gcjTransformLng(lng - 105, lat - 35);
+  const radLat = (lat / 180) * GCJ_PI;
+  let magic = Math.sin(radLat);
+  magic = 1 - GCJ_EE * magic * magic;
+  const sqrtMagic = Math.sqrt(magic);
+  dLat = (dLat * 180) / (((GCJ_A * (1 - GCJ_EE)) / (magic * sqrtMagic)) * GCJ_PI);
+  dLng = (dLng * 180) / ((GCJ_A / sqrtMagic) * Math.cos(radLat) * GCJ_PI);
+  return [lng + dLng, lat + dLat];
+}
+
 /* Client-side fallback for the header weather: when the server could not
    reach Open-Meteo (weather === null), the browser fetches it directly
    (Open-Meteo allows CORS). Same WMO-code wording as the server. */
@@ -992,30 +1031,31 @@ function MapSection({ places, projectPin }: { places: Place[]; projectPin: Proje
     let map: maplibregl.Map;
     let loaded = false;
     try {
-      const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      /* Base map: CARTO raster tiles (OpenStreetMap data, WGS-84 — same
-         coordinate system as the verified pins/polygons). tile.openstreetmap.org
-         is unreachable/too slow on mainland-China networks, which left the
-         map with pins but no base map; CARTO's CDN loads reliably there. */
-      const cartoTiles = (path: string) =>
-        ["a", "b", "c", "d"].map(
-          (s) => `https://${s}.basemaps.cartocdn.com/${path}/{z}/{x}/{y}.png`,
-        );
+      /* Base map: 高德 (AutoNavi) raster tiles — directly reachable on
+         mainland-China networks without a key. Both tile.openstreetmap.org
+         and CARTO's CDN (basemaps.cartocdn.com) proved unreachable there,
+         leaving pins on a blank base. AutoNavi tiles are GCJ-02, so all
+         coordinates are converted from the stored WGS-84 at render time
+         via wgs84ToGcj02 (see its comment). Same tiles in dark mode. */
+      const amapTiles = [1, 2, 3, 4].map(
+        (n) =>
+          `https://webrd0${n}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}`,
+      );
       map = new maplibregl.Map({
         container: mapRef.current,
         style: {
           version: 8,
           sources: {
-            carto: {
+            amap: {
               type: "raster",
-              tiles: cartoTiles(dark ? "dark_all" : "rastertiles/voyager"),
+              tiles: amapTiles,
               tileSize: 256,
-              attribution: "© OpenStreetMap contributors © CARTO",
+              attribution: "© 高德地图 AutoNavi",
             },
           },
-          layers: [{ id: "carto", type: "raster", source: "carto" }],
+          layers: [{ id: "amap", type: "raster", source: "amap" }],
         },
-        center: [114.402, 30.612],
+        center: wgs84ToGcj02(114.402, 30.612),
         zoom: 12,
         attributionControl: { compact: true },
         locale: {
@@ -1089,11 +1129,11 @@ function MapSection({ places, projectPin }: { places: Place[]; projectPin: Proje
       const pin = pinByKey.get(key);
       if (!pin) return;
       popup.setDOMContent(buildPopupEl(pin, mapIconFor(pin)));
-      popup.setLngLat([pin.lng, pin.lat]);
+      popup.setLngLat(wgs84ToGcj02(pin.lng, pin.lat));
       if (!popup.isOpen()) popup.addTo(map);
       if (opts?.fly) {
         map.flyTo({
-          center: [pin.lng, pin.lat],
+          center: wgs84ToGcj02(pin.lng, pin.lat),
           zoom: Math.max(map.getZoom(), 13.5),
           speed: 1.2,
           essential: true,
@@ -1114,7 +1154,7 @@ function MapSection({ places, projectPin }: { places: Place[]; projectPin: Proje
         select(pin.key);
       });
       const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([pin.lng, pin.lat])
+        .setLngLat(wgs84ToGcj02(pin.lng, pin.lat))
         .addTo(map);
       markers.set(pin.key, marker);
     }
@@ -1127,7 +1167,12 @@ function MapSection({ places, projectPin }: { places: Place[]; projectPin: Proje
         .map((p) => ({
           type: "Feature" as const,
           properties: { key: p.key, category: p.category, status: p.status },
-          geometry: { type: "Polygon" as const, coordinates: [p.polygon as [number, number][]] },
+          geometry: {
+            type: "Polygon" as const,
+            coordinates: [
+              (p.polygon as [number, number][]).map(([lng, lat]) => wgs84ToGcj02(lng, lat)),
+            ],
+          },
         }));
       map.addSource("place-polygons", {
         type: "geojson",
@@ -1168,7 +1213,7 @@ function MapSection({ places, projectPin }: { places: Place[]; projectPin: Proje
       });
       applyPolygonFilter();
       const bounds = new maplibregl.LngLatBounds();
-      for (const p of pins) bounds.extend([p.lng, p.lat]);
+      for (const p of pins) bounds.extend(wgs84ToGcj02(p.lng, p.lat));
       map.fitBounds(bounds, { padding: 44, maxZoom: 14, duration: 0 });
     });
 

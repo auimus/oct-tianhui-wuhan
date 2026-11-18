@@ -935,12 +935,44 @@ document.querySelectorAll("[data-place-idx]").forEach(function (el) {
   });
 });
 /* Interactive MapLibre map — same setup as the live space: real basemap
-   (OpenStreetMap raster tiles), HTML markers with type glyphs + status
+   (高德 AutoNavi raster tiles, GCJ-02; WGS-84 coords converted at render),
+   HTML markers with type glyphs + status
    colors, a popup anchored to the clicked pin, and the selected place's
    verified polygon shown dashed only while selected. If the CDN library
    fails to load or WebGL is unavailable, the static pin-plot fallback
    above stays visible and fully functional; nothing else on the page
    depends on the map. */
+/* WGS-84 → GCJ-02: stored coordinates are verified WGS-84, but the 高德
+   base tiles are GCJ-02, so coordinates are converted at render time only
+   (pins, polygon vertices, map center, flyTo targets). Displayed text and
+   the navigation link keep the original WGS-84 values. */
+var GCJ_PI = Math.PI, GCJ_A = 6378245.0, GCJ_EE = 0.00669342162296594323;
+function gcjTransformLat(x, y) {
+  var ret = -100 + 2 * x + 3 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+  ret += ((20 * Math.sin(6 * x * GCJ_PI) + 20 * Math.sin(2 * x * GCJ_PI)) * 2) / 3;
+  ret += ((20 * Math.sin(y * GCJ_PI) + 40 * Math.sin((y / 3) * GCJ_PI)) * 2) / 3;
+  ret += ((160 * Math.sin((y / 12) * GCJ_PI) + 320 * Math.sin((y * GCJ_PI) / 30)) * 2) / 3;
+  return ret;
+}
+function gcjTransformLng(x, y) {
+  var ret = 300 + x + 2 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+  ret += ((20 * Math.sin(6 * x * GCJ_PI) + 20 * Math.sin(2 * x * GCJ_PI)) * 2) / 3;
+  ret += ((20 * Math.sin(x * GCJ_PI) + 40 * Math.sin((x / 3) * GCJ_PI)) * 2) / 3;
+  ret += ((150 * Math.sin((x / 12) * GCJ_PI) + 300 * Math.sin((x / 30) * GCJ_PI)) * 2) / 3;
+  return ret;
+}
+function wgs84ToGcj02(lng, lat) {
+  if (lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271) return [lng, lat];
+  var dLat = gcjTransformLat(lng - 105, lat - 35);
+  var dLng = gcjTransformLng(lng - 105, lat - 35);
+  var radLat = (lat / 180) * GCJ_PI;
+  var magic = Math.sin(radLat);
+  magic = 1 - GCJ_EE * magic * magic;
+  var sqrtMagic = Math.sqrt(magic);
+  dLat = (dLat * 180) / (((GCJ_A * (1 - GCJ_EE)) / (magic * sqrtMagic)) * GCJ_PI);
+  dLng = (dLng * 180) / ((GCJ_A / sqrtMagic) * Math.cos(radLat) * GCJ_PI);
+  return [lng + dLng, lat + dLat];
+}
 var mlMap = null;
 var mlMarkers = [];
 var mlPopup = null;
@@ -967,11 +999,11 @@ function selectMapPin(idx, opts) {
   mlSelected = idx;
   mlMarkers.forEach(function (m, i) { if (m) m.getElement().classList.toggle("ml-pin--on", i === idx); });
   applyMapPolygon();
-  mlPopup.setLngLat([d.lng, d.lat]);
+  mlPopup.setLngLat(wgs84ToGcj02(d.lng, d.lat));
   mlPopup.setHTML(buildPopupHtml(d));
   if (!mlPopup.isOpen()) mlPopup.addTo(mlMap);
   if (opts && opts.fly) {
-    mlMap.flyTo({ center: [d.lng, d.lat], zoom: Math.max(mlMap.getZoom(), 13.5), speed: 1.2, essential: true });
+    mlMap.flyTo({ center: wgs84ToGcj02(d.lng, d.lat), zoom: Math.max(mlMap.getZoom(), 13.5), speed: 1.2, essential: true });
   }
 }
 function deselectMapPin() {
@@ -1008,21 +1040,21 @@ function syncMapFilter(cat) {
       style: {
         version: 8,
         sources: {
-          osm: {
+          amap: {
             type: "raster",
             tiles: [
-              "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
-              "https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
-              "https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
-              "https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
+              "https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}",
+              "https://webrd02.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}",
+              "https://webrd03.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}",
+              "https://webrd04.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}"
             ],
             tileSize: 256,
-            attribution: "© OpenStreetMap contributors © CARTO"
+            attribution: "© 高德地图 AutoNavi"
           }
         },
-        layers: [{ id: "osm", type: "raster", source: "osm" }]
+        layers: [{ id: "amap", type: "raster", source: "amap" }]
       },
-      center: [114.402, 30.612],
+      center: wgs84ToGcj02(114.402, 30.612),
       zoom: 12,
       attributionControl: { compact: true },
       locale: {
@@ -1048,7 +1080,7 @@ function syncMapFilter(cat) {
     var features = [];
     PIN_DATA.forEach(function (d, i) {
       if (d.polygon) {
-        features.push({ type: "Feature", properties: { key: String(i), status: d.status }, geometry: { type: "Polygon", coordinates: [d.polygon] } });
+        features.push({ type: "Feature", properties: { key: String(i), status: d.status }, geometry: { type: "Polygon", coordinates: [d.polygon.map(function (pt) { return wgs84ToGcj02(pt[0], pt[1]); })] } });
       }
     });
     map.addSource("place-polygons", { type: "geojson", data: { type: "FeatureCollection", features: features } });
@@ -1063,14 +1095,14 @@ function syncMapFilter(cat) {
       el.textContent = d.glyph;
       el.setAttribute("aria-label", "在地图上查看：" + d.label);
       el.addEventListener("click", function (e) { e.stopPropagation(); selectMapPin(i); });
-      mlMarkers[i] = new maplibregl.Marker({ element: el }).setLngLat([d.lng, d.lat]).addTo(map);
+      mlMarkers[i] = new maplibregl.Marker({ element: el }).setLngLat(wgs84ToGcj02(d.lng, d.lat)).addTo(map);
     });
     wrap.classList.remove("hidden");
     if (fallback) fallback.classList.add("hidden");
     mapReady = true;
     map.resize();
     var bounds = new maplibregl.LngLatBounds();
-    PIN_DATA.forEach(function (d) { bounds.extend([d.lng, d.lat]); });
+    PIN_DATA.forEach(function (d) { bounds.extend(wgs84ToGcj02(d.lng, d.lat)); });
     map.fitBounds(bounds, { padding: 44, maxZoom: 14, duration: 0 });
     syncMapFilter(mlCategory);
   });
@@ -1087,7 +1119,7 @@ export function buildStaticReadme(data: StaticSiteData): string {
 
 - 数据快照时间：${data.snapshotText}（${data.snapshotAt}，北京时间）
 - 内容：速览、最新动态（${data.feedItems.length} 条）、房价走势与分户型、周边配套地图与全部图钉数据（${data.places.length} 处配套）、片区时间线、项目档案、实地施工图
-- 形式：只有文本文件；图片已以 base64 内嵌进 index.html，不依赖任何后端接口。唯一的在线依赖是地图：MapLibre 库从 jsdelivr CDN 加载、底图用 OpenStreetMap 瓦片，与原空间同一套交互地图；CDN 或网络不可用时地图自动回退为内置的图钉分布示意图，其余内容不受影响
+- 形式：只有文本文件；图片已以 base64 内嵌进 index.html，不依赖任何后端接口。唯一的在线依赖是地图：MapLibre 库从 jsdelivr CDN 加载、底图用高德（AutoNavi）瓦片（GCJ-02，渲染时由存储的 WGS-84 坐标转换），与原空间同一套交互地图；CDN 或网络不可用时地图自动回退为内置的图钉分布示意图，其余内容不受影响
 
 ## 部署
 

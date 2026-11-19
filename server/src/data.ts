@@ -75,7 +75,7 @@ export type Place = {
 export const PLACES: Place[] = [
   // 交通
   { name: "地铁 4 号线 · 工业四路站", category: "交通", distanceText: "约 177 米", distanceM: 177, status: "已运营", description: "B 口步行约 2 分钟。4 号线直达武昌火车站、中南路、楚河汉街，可换乘 2、3、7 号线通达三镇。", sourceUrl: SRC_MAIN },
-  { name: "地铁 4 号线 · 杨春湖站", category: "交通", distanceText: "约 1 公里", distanceM: 1000, status: "已运营", description: "位于杨春湖路与明德路交汇处，4 号线一站达武汉站方向。", sourceUrl: SRC_MAIN, addedOn: "2026-11-17" },
+  { name: "地铁 4 号线 · 杨春湖站", category: "交通", distanceText: "约 900 米", distanceM: 900, status: "已运营", description: "位于杨春湖路与明德路交汇处，4 号线一站达武汉站方向。", sourceUrl: SRC_MAIN, addedOn: "2026-11-17", updatedOn: "2026-11-19" },
   { name: "地铁 10 号线 / 新港线 · 北洋桥站", category: "交通", distanceText: "约 550 米", distanceM: 545, status: "在建", description: "新港线一期起点站，2023-12-22 开工。10 号线一期（汉口火车站—北洋桥）同步在建，设计时速 120 公里，通车后武汉站↔汉口站地铁约 25 分钟（现约 1 小时）。", sourceUrl: SRC_BENDIBAO, updatedOn: "2026-11-18" },
   { name: "公交 · 团结大道地铁工业四路站", category: "交通", distanceText: "约 259 米", distanceM: 259, status: "已运营", description: "最近公交站，周边约 10 条线路；片区 1 公里内有多个站点、多条线路覆盖（宣传口径）。", sourceUrl: SRC_MAIN },
   { name: "武汉站（高铁）", category: "交通", distanceText: "约 1.5 公里", distanceM: 1500, status: "已运营", description: "经杨春湖路/团结大道可达；城际与高铁通达武汉城市圈及全国主要城市。", sourceUrl: SRC_MAIN },
@@ -130,7 +130,7 @@ export type PlaceGeo = {
 
 export const PLACE_GEO: Record<string, PlaceGeo> = {
   "地铁 4 号线 · 工业四路站": { lat: 30.6102194, lng: 114.4000694 },
-  "地铁 4 号线 · 杨春湖站": { lat: 30.61194, lng: 114.41139 },
+  "地铁 4 号线 · 杨春湖站": { lat: 30.6075929, lng: 114.4107285 },
   "地铁 10 号线 / 新港线 · 北洋桥站": {
     lat: 30.60839,
     lng: 114.39588,
@@ -342,7 +342,7 @@ export const PLACE_GEO: Record<string, PlaceGeo> = {
     lat: 30.6088,
     lng: 114.415,
     pinNote:
-      "近似定位：该校官方名为七一华源中学东湖新城分校，洪山区政府 2025 年政协提案答复称仍在设计招标阶段、力争开工，选址未公示；与仁和路已开工的「七一华源中学东湖分校」不是同一所。图钉按条目口径（1 公里以外、约 1.3 公里，图钉实测约 1.3 公里）落在东湖新城核心区（杨春湖站南侧）一带，为近似位置，待官方公布选址后校正",
+      "近似定位：该校官方名为七一华源中学东湖新城分校，洪山区政府 2025 年政协提案答复称仍在设计招标阶段、力争开工，选址未公示；与仁和路已开工的「七一华源中学东湖分校」不是同一所。图钉按条目口径（1 公里以外、约 1.3 公里，图钉实测约 1.3 公里）落在东湖新城核心区（杨春湖站东北侧一带），为近似位置，待官方公布选址后校正",
   },
 };
 

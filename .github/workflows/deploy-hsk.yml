@@ -28,7 +28,7 @@ jobs:
     env:
       HSK_RESOURCE_ID: '1794975944996863971'
       HSK_PUBLIC_URL: https://yrxbis.kicp.fun
-      HSK_CLI_VERSION: '0.10.11'
+      HSK_CLI_VERSION: '0.10.10'
 
     steps:
       - name: Fetch and compare the committed HTML snapshot

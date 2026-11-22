@@ -15,6 +15,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   EVALUATION,
+  METRO_LINES,
   MILESTONES,
   PLACE_GEO,
   PLACES,
@@ -137,6 +138,19 @@ function readMapLib(): StaticMapLib {
 
 /* Snapshot-moment weather from Open-Meteo (same source/coordinates as
    the live header). Any failure → null and the block is omitted. */
+/* Header weather date label from Open-Meteo's current.time
+   (e.g. "2026-11-22T02:45" → "11月22日"); falls back to today's
+   Asia/Shanghai date when the observation time is missing. */
+function weatherDateLabel(observedAt: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(observedAt);
+  if (m) return `${Number(m[2])}月${Number(m[3])}日`;
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    month: "numeric",
+    day: "numeric",
+  }).format(new Date());
+}
+
 async function loadWeather(): Promise<StaticSiteData["weather"]> {
   try {
     const url =
@@ -178,6 +192,7 @@ async function loadWeather(): Promise<StaticSiteData["weather"]> {
       humidity: cur.relative_humidity_2m ?? 0,
       windKmh: cur.wind_speed_10m ?? 0,
       observedAt: cur.time ?? "",
+      dateLabel: weatherDateLabel(cur.time ?? ""),
     };
   } catch {
     return null;
@@ -215,6 +230,7 @@ const data: StaticSiteData = {
   bookmarkCount: feed.bookmarkCount,
   lastRefreshAt: feed.lastRefreshAt,
   weather,
+  metroLines: METRO_LINES,
   evaluation: EVALUATION,
 };
 

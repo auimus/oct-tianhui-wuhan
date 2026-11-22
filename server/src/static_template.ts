@@ -131,6 +131,7 @@ export interface StaticWeather {
   humidity: number;
   windKmh: number;
   observedAt: string;
+  dateLabel: string;
 }
 
 export interface StaticEvaluation {
@@ -139,6 +140,16 @@ export interface StaticEvaluation {
   items: { label: string; score: number; basis: string }[];
   verdict: string;
   note: string;
+}
+
+export interface StaticMetroLine {
+  id: string;
+  name: string;
+  color: string;
+  status: string;
+  note: string;
+  stations: string[];
+  geometry: [number, number][];
 }
 
 export interface StaticSiteData {
@@ -155,6 +166,7 @@ export interface StaticSiteData {
   bookmarkCount: number;
   lastRefreshAt: string | null;
   weather: StaticWeather | null;
+  metroLines: StaticMetroLine[];
   evaluation: StaticEvaluation;
 }
 
@@ -346,18 +358,35 @@ function collectPins(data: StaticSiteData): Pin[] {
   return pins;
 }
 
-function pinPlotSvg(pins: Pin[]): string {
+function pinPlotSvg(pins: Pin[], metroLines: StaticMetroLine[]): string {
   const W = 720;
   const H = 400;
   const pad = 26;
+  /* Projection range covers the metro geometry as well as the pins, so
+     lines reaching the map window edges are not clipped by a pin-only
+     bounding box. */
   const lngs = pins.map((p) => p.lng);
   const lats = pins.map((p) => p.lat);
+  for (const l of metroLines) {
+    for (const [lng, lat] of l.geometry) {
+      lngs.push(lng);
+      lats.push(lat);
+    }
+  }
   const minLng = Math.min(...lngs);
   const maxLng = Math.max(...lngs);
   const minLat = Math.min(...lats);
   const maxLat = Math.max(...lats);
   const x = (lng: number) => pad + ((lng - minLng) / (maxLng - minLng || 1)) * (W - pad * 2);
   const y = (lat: number) => H - pad - ((lat - minLat) / (maxLat - minLat || 1)) * (H - pad * 2);
+  const metroPolys = metroLines
+    .map((l) => {
+      const pts = l.geometry
+        .map(([lng, lat]) => `${x(lng).toFixed(1)},${y(lat).toFixed(1)}`)
+        .join(" ");
+      return `<polyline points="${pts}" fill="none" stroke="${l.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`;
+    })
+    .join("");
   const polys = pins
     .filter((p) => p.polygon !== null)
     .map((p) => {
@@ -379,7 +408,7 @@ function pinPlotSvg(pins: Pin[]): string {
       );
     })
     .join("");
-  return `<svg viewBox="0 0 ${W} ${H}" class="pinplot" role="group" aria-label="周边配套图钉分布示意图（按经纬度投影，点击图钉查看详情）">${polys}${dots}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" class="pinplot" role="group" aria-label="周边配套图钉分布示意图（按经纬度投影，含地铁线路走向，点击图钉查看详情）">${metroPolys}${polys}${dots}</svg>`;
 }
 
 const CSS = `
@@ -688,6 +717,13 @@ ${pl.pinNote ? `<p class="small dim">图钉说明：${esc(pl.pinNote)}</p>` : ""
     .map((d) => `<span class="chip"><span aria-hidden="true">${d.glyph}</span> ${esc(d.typeLabel)}</span>`)
     .join(" ");
 
+  const metroLegendHtml = data.metroLines
+    .map(
+      (l) =>
+        `<span class="chip"><span aria-hidden="true" style="display:inline-block;width:22px;height:3px;border-radius:2px;background:${esc(l.color)};vertical-align:middle;margin-right:5px"></span>${esc(l.name)}（${esc(l.status)}）</span>`,
+    )
+    .join(" ");
+
   const counts = new Map<string, number>();
   for (const pl of data.places) counts.set(pl.status, (counts.get(pl.status) ?? 0) + 1);
 
@@ -768,6 +804,17 @@ ${evalRows}
       freshKind: placeFreshKind(pin, today),
     })),
   ).replace(/</g, "\\u003c");
+  const metroDataJson = JSON.stringify(
+    data.metroLines.map((l) => ({
+      id: l.id,
+      name: l.name,
+      color: l.color,
+      status: l.status,
+      note: l.note,
+      stations: l.stations,
+      geometry: l.geometry,
+    })),
+  ).replace(/</g, "\\u003c");
   const snapshotJson = JSON.stringify(data).replace(/</g, "\\u003c");
 
   /* MapLibre GL: inline the library when its sources were supplied
@@ -803,7 +850,7 @@ ${mapLibCssTag}
 </div>
 ${data.weather ? `<div class="weather" aria-label="项目所在地天气">
 <p class="wmain" style="margin:0"><span aria-hidden="true">${esc(data.weather.icon)}</span> ${esc(data.weather.label)} <span class="wt">${Math.round(data.weather.tempC)}°C</span></p>
-<p class="small dim" style="margin:2px 0 0">今日 ${Math.round(data.weather.lowC)}~${Math.round(data.weather.highC)}°C · 湿度 ${Math.round(data.weather.humidity)}% · 风 ${Math.round(data.weather.windKmh)} km/h</p>
+<p class="small dim" style="margin:2px 0 0">${data.weather.dateLabel} ${Math.round(data.weather.lowC)}~${Math.round(data.weather.highC)}°C · 湿度 ${Math.round(data.weather.humidity)}% · 风 ${Math.round(data.weather.windKmh)} km/h</p>
 <p class="small dim" style="margin:0">项目所在地天气 · Open-Meteo</p>
 </div>` : ""}
 </div>
@@ -872,13 +919,14 @@ ${ychChart}
 
 <section id="map" aria-label="周边地图与配套">
 <h2>周边地图 · 配套全图</h2>
-<p class="dim" style="font-size:14px">图标区分类型，颜色区分状态（绿＝已运营、橙＝在建、灰＝规划中）。地图可以拖动、缩放：点击图钉，弹窗会锚定在图钉旁显示名称与说明，页面不会跳动；点下方条目，地图会平移定位并打开同一弹窗。手机上单指拖动即可平移、双指捏合缩放。有实测范围的点位，点击其图钉时才会以虚线显示范围轮廓，平时不显示。少数配套为按公开地址推定的近似定位，弹窗的图钉说明里有标注。距离为直线距离参考。</p>
+<p class="dim" style="font-size:14px">图标区分类型，颜色区分状态（绿＝已运营、橙＝在建、灰＝规划中）。地图可以拖动、缩放：点击图钉，弹窗会锚定在图钉旁显示名称与说明，页面不会跳动；点下方条目，地图会平移定位并打开同一弹窗。手机上单指拖动即可平移、双指捏合缩放。有实测范围的点位，点击其图钉时才会以虚线显示范围轮廓，平时不显示。少数配套为按公开地址推定的近似定位，弹窗的图钉说明里有标注。距离为直线距离参考。地图上还按官方颜色画出了附近的地铁线路（4、5、12、19 号线已运营，10 号线 / 新港线在建），点击线路可查看线路名、状态与图示段沿线站点；线路只在地图上展示，下方配套列表不单列。</p>
 <p class="dim small">共 ${data.places.length} 处配套 · 已运营 ${counts.get("已运营") ?? 0} · 在建 ${counts.get("在建") ?? 0} · 规划中 ${counts.get("规划中") ?? 0}；其中 ${pins.length - 1} 处已上图（另含本项目图钉）。带「新增 / 更新」标记的为近两周内新纳入目录或内容有更正的配套。</p>
 <p>${legendHtml}</p>
 <p><span class="chip chip-open">● 已运营</span><span class="chip chip-building">● 在建</span><span class="chip chip-planned">● 规划中</span></p>
+<p>${metroLegendHtml}</p>
 <div id="ml-map" class="ml-map hidden" role="application" aria-label="周边配套交互地图（可拖动缩放，点击图钉查看详情）"></div>
 <div id="map-fallback">
-${pinPlotSvg(pins)}
+${pinPlotSvg(pins, data.metroLines)}
 <div id="pin-detail" class="card" aria-live="polite"><p class="dim" style="margin:0">点击上方分布图的任意图钉，这里会显示该地点的名称、状态与说明。</p></div>
 </div>
 <div class="filters" role="group" aria-label="配套分类筛选">
@@ -937,6 +985,7 @@ ${evalHtml}
 ${mapLibJsTag}
 <script>
 var PIN_DATA = ${pinDataJson};
+var METRO_DATA = ${metroDataJson};
 /* Feed: category filter + collapse in one rule — collapsed shows only
    the first FEED_PAGE matching items; the toggle button expands all. */
 var FEED_PAGE = 8;
@@ -1082,6 +1131,11 @@ function buildPopupHtml(d) {
     (d.pinNote ? "<p class='ml-popup-pinnote'>图钉说明：" + d.pinNote + "</p>" : "") +
     "<a class='ml-popup-link' target='_blank' rel='noopener' href='https://www.google.com/maps/dir/?api=1&destination=" + d.lat + "," + d.lng + "'>导航到这里 →</a>";
 }
+function buildMetroPopupHtml(l) {
+  return "<div class='ml-popup-head'><span class='map-badge' style='border-color:" + l.color + "' aria-hidden='true'>🚇</span><div><h3 class='ml-popup-title'>" + l.name + "</h3><p class='ml-popup-chips'><span class='ml-popup-chip'>地铁线路</span><span class='ml-popup-chip'>● " + l.status + "</span></p></div></div>" +
+    "<p class='ml-popup-note'>" + l.note + "</p>" +
+    "<p class='ml-popup-pinnote'>沿线站点（图示段）：" + l.stations.join(" · ") + "</p>";
+}
 function applyMapPolygon() {
   if (!mlMap || !mlMap.getLayer("place-polygons-fill")) return;
   var f = ["==", ["get", "key"], mlSelected === null ? "__none__" : String(mlSelected)];
@@ -1177,6 +1231,32 @@ function syncMapFilter(cat) {
   });
   map.on("load", function () {
     mlMap = map;
+    /* Metro lines: map-only overlay in official colours (WGS-84 geometry
+       converted to GCJ-02 at render). Clicking a line opens the shared
+       popup at the click point with name/status/stations; it does not
+       select a pin and never scrolls to the list below. */
+    var metroFeatures = METRO_DATA.map(function (l) {
+      return { type: "Feature", properties: { id: l.id }, geometry: { type: "LineString", coordinates: l.geometry.map(function (pt) { return wgs84ToGcj02(pt[0], pt[1]); }) } };
+    });
+    map.addSource("metro-lines", { type: "geojson", data: { type: "FeatureCollection", features: metroFeatures } });
+    var metroColor = ["match", ["get", "id"]];
+    METRO_DATA.forEach(function (l) { metroColor.push(l.id, l.color); });
+    metroColor.push("#888888");
+    map.addLayer({ id: "metro-lines", type: "line", source: "metro-lines", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": metroColor, "line-width": 3.5, "line-opacity": 0.9 } });
+    map.on("click", "metro-lines", function (e) {
+      if (!e.features || !e.features.length) return;
+      var line = null;
+      METRO_DATA.forEach(function (l) { if (l.id === e.features[0].properties.id) line = l; });
+      if (!line) return;
+      mlSelected = null;
+      mlMarkers.forEach(function (m) { if (m) m.getElement().classList.remove("ml-pin--on"); });
+      applyMapPolygon();
+      popup.setLngLat(e.lngLat);
+      popup.setHTML(buildMetroPopupHtml(line));
+      if (!popup.isOpen()) popup.addTo(map);
+    });
+    map.on("mouseenter", "metro-lines", function () { map.getCanvas().style.cursor = "pointer"; });
+    map.on("mouseleave", "metro-lines", function () { map.getCanvas().style.cursor = ""; });
     var features = [];
     PIN_DATA.forEach(function (d, i) {
       if (d.polygon) {

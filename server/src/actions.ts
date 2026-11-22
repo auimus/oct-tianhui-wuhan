@@ -11,6 +11,7 @@ import * as schema from "./schema";
 
 import {
   EVALUATION,
+  METRO_LINES,
   MILESTONES,
   PLACE_GEO,
   PLACES,
@@ -40,6 +41,7 @@ const weatherShape = z.object({
   humidity: z.number(),
   windKmh: z.number(),
   observedAt: z.string(),
+  dateLabel: z.string(),
 });
 
 type WeatherData = z.infer<typeof weatherShape>;
@@ -47,6 +49,20 @@ type WeatherData = z.infer<typeof weatherShape>;
 let weatherCache: { at: number; data: WeatherData | null } | null = null;
 const WEATHER_TTL_MS = 20 * 60 * 1000;
 const WEATHER_FAIL_TTL_MS = 5 * 60 * 1000;
+
+/* Display date for the header weather: derived from Open-Meteo's
+   current.time (e.g. "2026-11-22T02:45" → "11月22日") so a stale cache
+   never reads as "今日". Falls back to today's Asia/Shanghai date when
+   the observation time is missing or malformed. */
+function weatherDateLabel(observedAt: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(observedAt);
+  if (m) return `${Number(m[2])}月${Number(m[3])}日`;
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    month: "numeric",
+    day: "numeric",
+  }).format(new Date());
+}
 
 async function fetchWeather(): Promise<WeatherData | null> {
   const nowMs = Date.now();
@@ -93,6 +109,7 @@ async function fetchWeather(): Promise<WeatherData | null> {
           humidity: cur.relative_humidity_2m ?? 0,
           windKmh: cur.wind_speed_10m ?? 0,
           observedAt: cur.time ?? "",
+          dateLabel: weatherDateLabel(cur.time ?? ""),
         };
       }
     }
@@ -313,6 +330,17 @@ export const Actions = {
         ),
       }),
       weather: weatherShape.nullable(),
+      metroLines: z.array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          color: z.string(),
+          status: z.string(),
+          note: z.string(),
+          stations: z.array(z.string()),
+          geometry: z.array(z.tuple([z.number(), z.number()])),
+        }),
+      ),
       evaluation: z.object({
         asOf: z.string(),
         overall: z.number(),
@@ -354,6 +382,7 @@ export const Actions = {
         projectPin: PROJECT_PIN,
         sitePhotos: SITE_PHOTOS,
         weather: await fetchWeather(),
+        metroLines: METRO_LINES,
         evaluation: EVALUATION,
       };
     },
@@ -663,6 +692,7 @@ export const Actions = {
         projectPin: PROJECT_PIN,
         sitePhotos: SITE_PHOTOS,
         weather: await fetchWeather(),
+        metroLines: METRO_LINES,
         evaluation: EVALUATION,
         feedItems,
         feedCount: rows.length,

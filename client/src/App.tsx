@@ -44,6 +44,7 @@ type Note = ApiResponse<typeof api, "listNotes">["notes"][number];
 type Prices = Overview["prices"];
 type UnitType = Prices["unitTypes"][number];
 type ProjectPin = Overview["projectPin"];
+type MetroLine = Overview["metroLines"][number];
 type SitePhotos = Overview["sitePhotos"];
 type Weather = NonNullable<Overview["weather"]>;
 type Evaluation = Overview["evaluation"];
@@ -118,6 +119,19 @@ const OPEN_METEO_URL =
   "https://api.open-meteo.com/v1/forecast?latitude=30.6092&longitude=114.4015" +
   "&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m" +
   "&daily=temperature_2m_max,temperature_2m_min&timezone=Asia%2FShanghai&forecast_days=1";
+
+/* Header weather date label from Open-Meteo's current.time
+   (e.g. "2026-11-22T02:45" → "11月22日"); falls back to today's
+   Asia/Shanghai date when the observation time is missing. */
+function weatherDateLabelClient(observedAt: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(observedAt);
+  if (m) return `${Number(m[2])}月${Number(m[3])}日`;
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    month: "numeric",
+    day: "numeric",
+  }).format(new Date());
+}
 
 function fmtPrice(n: number): string {
   return n.toLocaleString("zh-CN");
@@ -254,6 +268,7 @@ function PulseHeader({
             humidity: cur.relative_humidity_2m ?? 0,
             windKmh: cur.wind_speed_10m ?? 0,
             observedAt: cur.time ?? "",
+            dateLabel: weatherDateLabelClient(cur.time ?? ""),
           });
         }
       } catch {
@@ -291,7 +306,7 @@ function PulseHeader({
               <span className="tabular-nums text-[var(--accent)]">{Math.round(w.tempC)}°C</span>
             </p>
             <p className="mt-0.5 text-xs tabular-nums text-[var(--dim)]">
-              今日 {Math.round(w.lowC)}~{Math.round(w.highC)}°C · 湿度 {Math.round(w.humidity)}% · 风{" "}
+              {w.dateLabel} {Math.round(w.lowC)}~{Math.round(w.highC)}°C · 湿度 {Math.round(w.humidity)}% · 风{" "}
               {Math.round(w.windKmh)} km/h
             </p>
             <p className="mt-0.5 text-xs text-[var(--dim)]">项目所在地天气 · Open-Meteo</p>
@@ -946,7 +961,56 @@ function buildPopupEl(p: PinPlace, def: MapIconDef): HTMLDivElement {
   return root;
 }
 
-function MapSection({ places, projectPin }: { places: Place[]; projectPin: ProjectPin }) {
+/* DOM content for the MapLibre popup shown when a metro line is clicked.
+   Same .ml-popup styling as the pin popup; the badge ring uses the line's
+   official colour. Clicking a line never touches the list below the map. */
+function buildMetroPopupEl(line: MetroLine): HTMLDivElement {
+  const root = document.createElement("div");
+
+  const head = document.createElement("div");
+  head.className = "ml-popup-head";
+  const badge = document.createElement("span");
+  badge.className = "map-badge";
+  badge.style.borderColor = line.color;
+  badge.setAttribute("aria-hidden", "true");
+  badge.textContent = "🚇";
+  const titleWrap = document.createElement("div");
+  const title = document.createElement("h3");
+  title.className = "ml-popup-title";
+  title.textContent = line.name;
+  const chips = document.createElement("p");
+  chips.className = "ml-popup-chips";
+  for (const t of ["地铁线路", `● ${line.status}`]) {
+    const chip = document.createElement("span");
+    chip.className = "ml-popup-chip";
+    chip.textContent = t;
+    chips.append(chip);
+  }
+  titleWrap.append(title, chips);
+  head.append(badge, titleWrap);
+  root.append(head);
+
+  const note = document.createElement("p");
+  note.className = "ml-popup-note";
+  note.textContent = line.note;
+  root.append(note);
+
+  const stations = document.createElement("p");
+  stations.className = "ml-popup-pinnote";
+  stations.textContent = `沿线站点（图示段）：${line.stations.join(" · ")}`;
+  root.append(stations);
+  return root;
+}
+
+function MapSection({
+  places,
+  projectPin,
+  metroLines,
+}: {
+  places: Place[];
+  projectPin: ProjectPin;
+  metroLines: MetroLine[];
+}) {
   const mapWrapRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<HTMLDivElement | null>(null);
   const mapObjRef = useRef<maplibregl.Map | null>(null);
@@ -1166,6 +1230,58 @@ function MapSection({ places, projectPin }: { places: Place[]; projectPin: Proje
 
     map.on("load", () => {
       loaded = true;
+      /* Metro lines (map-only; no entries in the place list below). Stored
+         WGS-84 geometry converted to GCJ-02 at render, official colours,
+         ~3.5px wide. Clicking a line opens the shared popup anchored at
+         the click point with the line's name/status/stations — it does
+         not select a pin and never scrolls to the list. */
+      map.addSource("metro-lines", {
+        type: "geojson",
+        data: {
+          type: "FeatureCollection",
+          features: metroLines.map((l) => ({
+            type: "Feature" as const,
+            properties: { id: l.id },
+            geometry: {
+              type: "LineString" as const,
+              coordinates: l.geometry.map(([lng, lat]) => wgs84ToGcj02(lng, lat)),
+            },
+          })),
+        },
+      });
+      const metroColorExpr: unknown[] = ["match", ["get", "id"]];
+      for (const l of metroLines) metroColorExpr.push(l.id, l.color);
+      metroColorExpr.push("#888888");
+      map.addLayer({
+        id: "metro-lines",
+        type: "line",
+        source: "metro-lines",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": metroColorExpr as unknown as maplibregl.ExpressionSpecification,
+          "line-width": 3.5,
+          "line-opacity": 0.9,
+        },
+      });
+      map.on("click", "metro-lines", (e) => {
+        const f = e.features?.[0];
+        if (!f) return;
+        const line = metroLines.find((l) => l.id === f.properties?.id);
+        if (!line) return;
+        setSelectedKey(null);
+        selectedKeyRef.current = null;
+        applyPolygonFilter();
+        markersRef.current.forEach((m) => m.getElement().classList.remove("pin--on"));
+        popup.setDOMContent(buildMetroPopupEl(line));
+        popup.setLngLat(e.lngLat);
+        if (!popup.isOpen()) popup.addTo(map);
+      });
+      map.on("mouseenter", "metro-lines", () => {
+        map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", "metro-lines", () => {
+        map.getCanvas().style.cursor = "";
+      });
       const features = pins
         .filter((p) => p.polygon !== null)
         .map((p) => ({
@@ -1230,7 +1346,7 @@ function MapSection({ places, projectPin }: { places: Place[]; projectPin: Proje
       map.remove();
       mapObjRef.current = null;
     };
-  }, [pins, pinByKey, fallback]);
+  }, [pins, pinByKey, metroLines, fallback]);
 
   /* Category filter drives both the pin/polygon visibility and the list. */
   useEffect(() => {
@@ -1266,7 +1382,8 @@ function MapSection({ places, projectPin }: { places: Place[]; projectPin: Proje
       <p className="mt-1 text-sm leading-relaxed text-[var(--dim)]">
         周边配套全部整合在这张图上：图标区分类型，颜色区分状态（绿＝已运营、橙＝在建、灰＝规划中）。点击图钉，弹窗会锚定在图钉旁显示名称与说明，页面不会跳动；点下方条目，地图会平移定位并打开同一弹窗。手机上单指拖动即可平移地图、双指捏合缩放。有实测范围的点位（印象城、欢乐谷、学校、医院等，轮廓来自
         OpenStreetMap 实测多边形；本项目地块范围按实测尺寸约 160 米 × 250
-        米绘制，为示意范围、非官方红线），点击其图钉时才会以虚线显示范围轮廓，平时不显示。少数配套位置已确定但暂无精确坐标，图钉为按公开地址与位置推定的近似定位，弹窗的图钉说明里有标注。距离为直线距离参考。
+        米绘制，为示意范围、非官方红线），点击其图钉时才会以虚线显示范围轮廓，平时不显示。少数配套位置已确定但暂无精确坐标，图钉为按公开地址与位置推定的近似定位，弹窗的图钉说明里有标注。距离为直线距离参考。地图上还按官方颜色画出了附近的地铁线路（4、5、12、19
+        号线已运营，10 号线 / 新港线在建），点击线路可查看线路名、状态与图示段沿线站点；线路只在地图上展示，下方配套列表不单列。
       </p>
       <p className="mt-2 text-sm text-[var(--dim)]">
         共 {places.length} 处配套 · 已运营 {counts.get("已运营") ?? 0} · 在建 {counts.get("在建") ?? 0} ·
@@ -1295,6 +1412,21 @@ function MapSection({ places, projectPin }: { places: Place[]; projectPin: Proje
         <span className="flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--dim)]">
           <span aria-hidden className="status-dot status-dot--planned" /> 规划中
         </span>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2" aria-label="地图图例：地铁线路（官方颜色）">
+        {metroLines.map((l) => (
+          <span
+            key={l.id}
+            className="flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--dim)]"
+          >
+            <span
+              aria-hidden
+              className="inline-block h-[3px] w-6 shrink-0 rounded-full"
+              style={{ background: l.color }}
+            />
+            {l.name}（{l.status}）
+          </span>
+        ))}
       </div>
       <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="配套分类筛选（同步过滤地图图钉）">
         {PLACE_CATEGORIES.map((c) => (
@@ -1709,7 +1841,11 @@ export function App() {
             )}
             <FeedSection />
             <PriceSection prices={overview.data.prices} />
-            <MapSection places={overview.data.places} projectPin={overview.data.projectPin} />
+            <MapSection
+              places={overview.data.places}
+              projectPin={overview.data.projectPin}
+              metroLines={overview.data.metroLines}
+            />
             <TimelineSection milestones={overview.data.milestones} />
             <ArchiveSection project={overview.data.project} />
             <SitePhotosSection data={overview.data.sitePhotos} />

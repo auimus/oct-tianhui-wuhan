@@ -28,7 +28,6 @@ jobs:
     env:
       HSK_RESOURCE_ID: '1794975944996863971'
       HSK_PUBLIC_URL: https://yrxbis.kicp.fun
-      HSK_CLI_VERSION: '0.11.0'
 
     steps:
       - name: Fetch and compare the committed HTML snapshot
@@ -81,7 +80,7 @@ jobs:
         if: steps.snapshot.outputs.needs_update == 'true'
         shell: bash
         run: |
-          npm install --global "@aweray/hsk-cli@$HSK_CLI_VERSION"
+          npm install --global "@aweray/hsk-cli@latest"
           hsk-cli download --format json | jq -e '.success == true' >/dev/null
           if ! hsk-cli doctor --format json | jq -e '.success == true' >/dev/null; then
             hsk-cli doctor --fix --format json >/dev/null

@@ -1771,6 +1771,95 @@ function NotesSection() {
   );
 }
 
+type Renovation = ApiResponse<typeof api, "getOverview">["renovation"];
+
+/* 装修参考 section (added 2026-11-26): generic 128㎡ smart-home reference
+   content from server/src/data.ts RENOVATION. The「新增」tag reuses the
+   place freshness mechanism: placeFreshKind over the section's addedOn. */
+function RenovationSection({ renovation }: { renovation: Renovation }) {
+  const freshKind = placeFreshKind({ addedOn: renovation.addedOn, updatedOn: null });
+  return (
+    <section aria-label="装修参考" className="mt-10">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="font-display text-2xl font-bold text-[var(--text)]">{renovation.title}</h2>
+        {freshKind && <FreshTag kind={freshKind} />}
+      </div>
+      <p className="mt-1 text-sm leading-relaxed text-[var(--dim)]">{renovation.intro}</p>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {renovation.plans.map((plan) => (
+          <div
+            key={plan.name}
+            className="rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] p-4"
+          >
+            <h3 className="font-display text-lg font-bold text-[var(--text)]">{plan.name}</h3>
+            <dl className="mt-2 space-y-1.5">
+              {plan.rows.map((r) => (
+                <div key={r.label} className="flex gap-2 text-sm leading-relaxed">
+                  <dt className="w-10 shrink-0 font-bold text-[var(--accent)]">{r.label}</dt>
+                  <dd className="min-w-0 text-[var(--text)]">{r.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ))}
+      </div>
+
+      <h3 className="mt-5 text-base font-bold text-[var(--text)]">两方案对比</h3>
+      <div className="mt-2 overflow-x-auto rounded-[var(--radius)] border border-[var(--border)]">
+        <table className="w-full min-w-[540px] border-collapse bg-[var(--surface)] text-sm">
+          <thead>
+            <tr className="bg-[var(--surface-alt)] text-left text-[var(--dim)]">
+              <th scope="col" className="px-3 py-2 font-semibold">对比项</th>
+              <th scope="col" className="px-3 py-2 font-semibold">米家</th>
+              <th scope="col" className="px-3 py-2 font-semibold">华为全屋智能</th>
+            </tr>
+          </thead>
+          <tbody>
+            {renovation.compareRows.map((r) => (
+              <tr key={r.label} className="border-t border-[var(--border)] align-top">
+                <th scope="row" className="whitespace-nowrap px-3 py-2 text-left font-bold text-[var(--text)]">
+                  {r.label}
+                </th>
+                <td className="px-3 py-2 leading-relaxed text-[var(--text)]">{r.mijia}</td>
+                <td className="px-3 py-2 leading-relaxed text-[var(--text)]">{r.huawei}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h3 className="mt-5 text-base font-bold text-[var(--text)]">通用预埋清单（两个方案都适用，水电交底用）</h3>
+      <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-[var(--text)]">
+        {renovation.checklist.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+
+      <h3 className="mt-5 text-base font-bold text-[var(--text)]">分阶段路线</h3>
+      <ol className="mt-2 space-y-1.5">
+        {renovation.stages.map((s) => (
+          <li key={s.phase} className="flex gap-2 text-sm leading-relaxed">
+            <span className="shrink-0 rounded-full bg-[var(--accent-soft)] px-2.5 py-0.5 font-bold text-[var(--accent)]">
+              {s.phase}
+            </span>
+            <span className="min-w-0 text-[var(--text)]">{s.text}</span>
+          </li>
+        ))}
+      </ol>
+
+      <h3 className="mt-5 text-base font-bold text-[var(--text)]">提醒</h3>
+      <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-[var(--text)]">
+        {renovation.tips.map((tip) => (
+          <li key={tip}>{tip}</li>
+        ))}
+      </ul>
+
+      <p className="mt-4 text-xs leading-relaxed text-[var(--dim)]">{renovation.footnote}</p>
+    </section>
+  );
+}
+
 function EvaluationSection({ evaluation }: { evaluation: Evaluation }) {
   return (
     <section aria-label="综合评价" className="mt-10">
@@ -1841,6 +1930,7 @@ export function App() {
             )}
             <FeedSection />
             <PriceSection prices={overview.data.prices} />
+            <RenovationSection renovation={overview.data.renovation} />
             <MapSection
               places={overview.data.places}
               projectPin={overview.data.projectPin}

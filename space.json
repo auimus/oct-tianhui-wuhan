@@ -4,7 +4,7 @@
     "tianhui-daily-refresh"
   ],
   "name": "华侨城天荟周边生活信息",
-  "platformVersion": 29,
+  "platformVersion": 31,
   "runtime": "typescript",
   "slug": "hua-qiao-cheng-tian-hui-zhou-bian-sheng-huo-xin-xi"
 }

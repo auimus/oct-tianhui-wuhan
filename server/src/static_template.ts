@@ -142,6 +142,18 @@ export interface StaticEvaluation {
   note: string;
 }
 
+export interface StaticRenovation {
+  addedOn: string;
+  title: string;
+  intro: string;
+  plans: { name: string; rows: { label: string; value: string }[] }[];
+  compareRows: { label: string; mijia: string; huawei: string }[];
+  checklist: string[];
+  stages: { phase: string; text: string }[];
+  tips: string[];
+  footnote: string;
+}
+
 export interface StaticMetroLine {
   id: string;
   name: string;
@@ -168,6 +180,7 @@ export interface StaticSiteData {
   weather: StaticWeather | null;
   metroLines: StaticMetroLine[];
   evaluation: StaticEvaluation;
+  renovation: StaticRenovation;
 }
 
 /** Image data URIs keyed by asset name; null when the file was missing. */
@@ -525,6 +538,14 @@ summary{cursor:pointer;color:var(--accent);font-size:14px}
 @media(min-width:560px){.unit-grid{grid-template-columns:repeat(2,1fr)}}
 @media(min-width:1024px){.unit-grid{grid-template-columns:repeat(4,1fr)}}
 .unit-grid .card{margin-top:0}
+.reno-grid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
+@media(min-width:760px){.reno-grid{grid-template-columns:repeat(2,1fr)}}
+.reno-grid .card{margin-top:0}
+.reno-grid dl{margin:6px 0 0}
+.reno-grid dl>div{display:flex;gap:8px;margin-top:5px;font-size:14px;line-height:1.6}
+.reno-grid dt{flex-shrink:0;width:44px;font-weight:700;color:var(--accent)}
+.reno-grid dd{margin:0;min-width:0}
+.stage-chip{display:inline-block;flex-shrink:0;border-radius:999px;background:var(--accent-soft);color:var(--accent);padding:0 10px;font-size:13px;font-weight:700;line-height:1.8}
 .unit-grid table{font-size:12px}
 .unit-grid th,.unit-grid td{padding:5px 4px}
 .unit-grid td.num{white-space:normal}
@@ -787,6 +808,39 @@ ${evalRows}
 <div class="card"><p style="margin:0;font-size:14px">${esc(ev.verdict)}</p></div>
 <p class="small dim">${esc(ev.note)}</p>`;
 
+  const rn = data.renovation;
+  const renoFresh = freshTagHtml(
+    placeFreshKind({ addedOn: rn.addedOn, updatedOn: null }, today),
+  );
+  const renoPlans = rn.plans
+    .map(
+      (plan) => `<div class="card"><h3 style="margin-top:0">${esc(plan.name)}</h3><dl>${plan.rows
+        .map(
+          (r) => `<div><dt>${esc(r.label)}</dt><dd>${esc(r.value)}</dd></div>`,
+        )
+        .join("")}</dl></div>`,
+    )
+    .join("\n");
+  const renoCompareRows = rn.compareRows
+    .map(
+      (r) => `<tr><th scope="row" style="white-space:nowrap">${esc(r.label)}</th><td>${esc(r.mijia)}</td><td>${esc(r.huawei)}</td></tr>`,
+    )
+    .join("\n");
+  const renoHtml = `<h2>${esc(rn.title)} ${renoFresh}</h2>
+<p class="dim" style="font-size:14px">${esc(rn.intro)}</p>
+<div class="reno-grid">
+${renoPlans}
+</div>
+<h3>两方案对比</h3>
+<table><thead><tr><th>对比项</th><th>米家</th><th>华为全屋智能</th></tr></thead><tbody>${renoCompareRows}</tbody></table>
+<h3>通用预埋清单（两个方案都适用，水电交底用）</h3>
+<ul>${rn.checklist.map((item) => `<li>${esc(item)}</li>`).join("")}</ul>
+<h3>分阶段路线</h3>
+${rn.stages.map((s) => `<p style="margin:4px 0"><span class="stage-chip">${esc(s.phase)}</span> ${esc(s.text)}</p>`).join("\n")}
+<h3>提醒</h3>
+<ul>${rn.tips.map((tip) => `<li>${esc(tip)}</li>`).join("")}</ul>
+<p class="small dim">${esc(rn.footnote)}</p>`;
+
   const pinDataJson = JSON.stringify(
     pins.map((pin) => ({
       label: pin.label,
@@ -859,7 +913,7 @@ ${data.weather ? `<div class="weather" aria-label="项目所在地天气">
 </header>
 
 <nav class="topnav" aria-label="本页导航">
-<a href="#overview">概况</a><a href="#prices">房价</a><a href="#map">地图配套</a><a href="#feed">动态</a><a href="#review">评价</a>
+<a href="#overview">概况</a><a href="#prices">房价</a><a href="#renovation">装修</a><a href="#map">地图配套</a><a href="#feed">动态</a><a href="#review">评价</a>
 </nav>
 
 <section id="overview" aria-label="项目概况">
@@ -915,6 +969,10 @@ ${ychChart}
 <h3>武汉 / 洪山最新市场快照</h3>
 <table><thead><tr><th>指标</th><th>时间</th><th class="num">均价</th><th>说明</th></tr></thead><tbody>${marketRows}</tbody></table>
 <p class="small dim">价格来源：${priceSources}。房价受楼层、朝向、装修与网签节奏影响波动较大，本页数据仅供跟踪参考，不构成购房建议；最终以房管部门备案与售楼处一房一价公示为准。</p>
+</section>
+
+<section id="renovation" aria-label="装修参考">
+${renoHtml}
 </section>
 
 <section id="map" aria-label="周边地图与配套">
@@ -1298,7 +1356,7 @@ export function buildStaticReadme(data: StaticSiteData): string {
 本文件夹是一个自包含的只读静态网站，由「华侨城天荟周边生活信息」空间导出。
 
 - 数据快照时间：${data.snapshotText}（${data.snapshotAt}，北京时间）
-- 内容：项目概况、房价走势与分户型、周边配套地图与全部图钉数据（${data.places.length} 处配套）、最新动态（${data.feedItems.length} 条）、片区时间线、项目档案、实地施工图、综合评价
+- 内容：项目概况、房价走势与分户型、装修参考（128㎡全屋智能两方案）、周边配套地图与全部图钉数据（${data.places.length} 处配套）、最新动态（${data.feedItems.length} 条）、片区时间线、项目档案、实地施工图、综合评价
 - 形式：只有文本文件；图片已以 base64 内嵌进 index.html，地图库 MapLibre GL 的 JS 与 CSS 也已内嵌进 index.html，页面自包含、不依赖任何后端接口或外部 CDN（本地 file:// 打开也能用）。唯一的在线依赖是地图底图：高德（AutoNavi）瓦片（GCJ-02，渲染时由存储的 WGS-84 坐标转换），与原空间同一套交互地图；网络不可用或 WebGL 不可用时地图自动回退为内置的图钉分布示意图，其余内容不受影响
 
 ## 部署

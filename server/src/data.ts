@@ -634,6 +634,113 @@ export const EVALUATION = {
   note: "评分基于本页已收录的公开数据（截至 2026-11-18），为主观综合判断，不构成购房建议；数据变化后评分会相应调整。",
 };
 
+/* ------------------------------------------------------------------ */
+/* 装修参考 · 128㎡全屋智能两方案 (added 2026-11-26 at the user's      */
+/* request; generic reference content only — no personal details).     */
+/* Premise stated in the UI: 以 128㎡户型、简装为前提. 米家 figures are */
+/* the user's own phased-buy estimates from the 2026-11-26 chat; 华为   */
+/* figures are the 2025 official 智装组合 reference prices quoted in   */
+/* that chat (footnote in the UI says 实际以门店报价为准). addedOn      */
+/* drives the section's「新增」freshness tag via the existing 14-day    */
+/* place-freshness mechanism (see DATA-PLAN.md「新增/更新标记机制」).   */
+/* ------------------------------------------------------------------ */
+
+export const RENOVATION = {
+  addedOn: "2026-11-26",
+  title: "装修参考 · 128㎡全屋智能两方案",
+  intro:
+    "以 128㎡户型、简装为前提。全屋智能建议预埋先行、设备分阶段买；以下两个方案按同一前提对比。",
+  plans: [
+    {
+      name: "方案一 · 米家",
+      rows: [
+        { label: "定位", value: "性价比、分阶段、自己动手" },
+        {
+          label: "成本",
+          value: "开局约 3000–4500 元（智能门锁＋客厅主卧灯/开关），做满全屋约 1 万元",
+        },
+        { label: "通信", value: "蓝牙 Mesh＋WiFi 无线，无需额外布线" },
+        {
+          label: "稳定性",
+          value: "设备不多时够用；20 台以上可能出现延迟、偶发离线，依赖中枢网关",
+        },
+        { label: "交付", value: "自己安装调试" },
+        { label: "适合", value: "预算有限、分阶段投入、喜欢自己折腾" },
+      ],
+    },
+    {
+      name: "方案二 · 华为全屋智能（鸿蒙智家）",
+      rows: [
+        { label: "定位", value: "稳定优先、前装" },
+        {
+          label: "成本",
+          value: "前装标准 29999 元起（150㎡以下，含主机与施工）；后装 9999 元起",
+        },
+        {
+          label: "通信",
+          value: "PLC 电力线载波有线骨干，断网可本地执行，毫秒级联动",
+        },
+        { label: "稳定性", value: "更高，不受墙体/WiFi 干扰" },
+        {
+          label: "交付",
+          value: "必须由华为门店或授权服务商勘测、设计、安装，不零售自装",
+        },
+        { label: "适合", value: "预算充足、追求稳定、新房前装、华为手机用户" },
+      ],
+    },
+  ],
+  compareRows: [
+    {
+      label: "全屋成本",
+      mijia: "开局约 3000–4500 元，做满全屋约 1 万元",
+      huawei: "前装 29999 元起；后装 9999 元起",
+    },
+    {
+      label: "通信方式",
+      mijia: "蓝牙 Mesh＋WiFi 无线",
+      huawei: "PLC 电力线载波有线骨干",
+    },
+    {
+      label: "稳定性",
+      mijia: "设备不多时够用，20 台以上可能延迟、偶发离线",
+      huawei: "更高，不受墙体/WiFi 干扰",
+    },
+    { label: "断网可用", mijia: "依赖中枢网关", huawei: "断网可本地执行" },
+    {
+      label: "交付方式",
+      mijia: "自己安装调试",
+      huawei: "门店或授权服务商勘测、设计、安装，不零售自装",
+    },
+    {
+      label: "生态开放度",
+      mijia: "生态开放、设备选择多，与华为互通有限",
+      huawei: "只接鸿蒙智联认证设备，与米家互通有限",
+    },
+  ],
+  checklist: [
+    "所有开关底盒留零火线，底盒用加深的",
+    "全屋拉六类网线：客厅 2 个点，主卧、次卧、书房各 1 个点；弱电箱换大的，留电源插座",
+    "每个窗帘盒预留一个插座；卫生间马桶旁留防水插座；阳台顶留一个插座给智能晾衣架",
+    "厨房台面 8–10 个带开关插座，大功率走 4 平方专线",
+    "强电箱分回路（照明、插座、空调、厨卫分开），留一个备用位",
+    "华为另需：弱电箱不小于 400×300mm，主机 SE 需专用双 86 入墙底盒",
+  ],
+  stages: [
+    { phase: "现在", text: "布线＋智能门锁＋客厅主卧灯/开关" },
+    { phase: "入住后", text: "加中枢（小爱音箱）＋人体/门窗传感器、智能插座" },
+    { phase: "有钱后", text: "电动窗帘、智能晾衣架、扫地机器人、摄像头" },
+  ],
+  tips: [
+    "智能设备大多只支持 2.4G WiFi，路由器要开 2.4G 频段",
+    "生态锁定：华为只接鸿蒙智联认证设备，与米家互通有限，换生态要换面板和主机",
+    "大家电别提前买智能版，溢价高",
+    "米家方案不必专门请人设计电路；华为前装必须请服务商",
+    "别为「智能设计」单独付几千设计费，内容就是上面这份清单",
+  ],
+  footnote:
+    "内容整理于 2026-11-26；华为价格为 2025 年官方智装组合参考价，实际以门店报价为准。",
+};
+
 /* WMO weather-code → Chinese label + icon (Open-Meteo current weather).
    Shared wording for the live header, the static snapshot, and the
    client-side fallback fetch. */

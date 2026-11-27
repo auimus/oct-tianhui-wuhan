@@ -18,6 +18,7 @@ import {
   PRICES,
   PROJECT,
   PROJECT_PIN,
+  RENOVATION,
   SEED_FEED,
   SITE_PHOTOS,
   weatherText,
@@ -350,6 +351,24 @@ export const Actions = {
         verdict: z.string(),
         note: z.string(),
       }),
+      renovation: z.object({
+        addedOn: z.string(),
+        title: z.string(),
+        intro: z.string(),
+        plans: z.array(
+          z.object({
+            name: z.string(),
+            rows: z.array(z.object({ label: z.string(), value: z.string() })),
+          }),
+        ),
+        compareRows: z.array(
+          z.object({ label: z.string(), mijia: z.string(), huawei: z.string() }),
+        ),
+        checklist: z.array(z.string()),
+        stages: z.array(z.object({ phase: z.string(), text: z.string() })),
+        tips: z.array(z.string()),
+        footnote: z.string(),
+      }),
     }),
     async handler(ctx) {
       const db = ctx.db<typeof schema>();
@@ -384,6 +403,7 @@ export const Actions = {
         weather: await fetchWeather(),
         metroLines: METRO_LINES,
         evaluation: EVALUATION,
+        renovation: RENOVATION,
       };
     },
   }),
@@ -639,7 +659,7 @@ export const Actions = {
 
   exportStaticSite: defineAction({
     description:
-      "Freezes all current display content (overview, feed, prices by unit type, map pins/polygons, timeline, archive, site photos) into a self-contained read-only static website under static-site/ (text files only, images base64-embedded) for direct deployment or the daily GitHub sync.",
+      "Freezes all current display content (overview, feed, prices by unit type, renovation reference, map pins/polygons, timeline, archive, site photos, evaluation) into a self-contained read-only static website under static-site/ (text files only, images base64-embedded) for direct deployment or the daily GitHub sync.",
     request: z.object({}),
     response: exportStaticSiteResponse,
     privileged: [privileged.writeStaticSite],
@@ -694,6 +714,7 @@ export const Actions = {
         weather: await fetchWeather(),
         metroLines: METRO_LINES,
         evaluation: EVALUATION,
+        renovation: RENOVATION,
         feedItems,
         feedCount: rows.length,
         bookmarkCount: bmRows.length,

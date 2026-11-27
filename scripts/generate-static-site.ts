@@ -22,6 +22,7 @@ import {
   PRICES,
   PROJECT,
   PROJECT_PIN,
+  RENOVATION,
   SITE_PHOTOS,
   weatherText,
 } from "../server/src/data";
@@ -232,6 +233,7 @@ const data: StaticSiteData = {
   weather,
   metroLines: METRO_LINES,
   evaluation: EVALUATION,
+  renovation: RENOVATION,
 };
 
 const images: StaticImages = {
